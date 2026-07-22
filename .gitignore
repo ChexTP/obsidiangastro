@@ -1,0 +1,30 @@
+# Credenciales y configuración local
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Dependencias y compilaciones
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.next/
+.vinext/
+.vercel/
+.wrangler/
+
+# Archivos temporales y registros
+*.log
+tmp/
+.agents/
+coverage/
+outputs/
+work/
+supabase/.temp/
+**/supabase/.temp/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+

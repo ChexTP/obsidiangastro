@@ -1,0 +1,40 @@
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { getOrders } from "../controllers/operationsController";
+import ErrorBoundary from "./ErrorBoundary";
+
+const navigation = [
+  ["Inicio", "/dashboard", "IN"], ["Pedidos", "/pedidos", "PD"], ["Menú", "/menu", "MN"],
+  ["Mesas", "/mesas", "MS"], ["Cocina", "/cocina", "CO"], ["Caja", "/caja", "CJ"],
+  ["Empleados", "/empleados", "EM"], ["Informes", "/informes", "IF"], ["Configuración", "/configuracion", "CF"],
+];
+
+export default function AppLayout() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [pendingOrders, setPendingOrders] = useState(null);
+  const { user, memberships, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const membership = memberships[0];
+  const restaurant = membership?.tenants?.business_name || "Mi restaurante";
+  const closeSession = () => { logout(); navigate("/login"); };
+  useEffect(() => {
+    let active = true;
+    const refresh = () => getOrders().then((orders) => { if (active) setPendingOrders(orders.filter((order) => !["paid", "cancelled", "refunded"].includes(order.status)).length); }).catch(() => { if (active) setPendingOrders(null); });
+    const receiveCount = (event) => { if (active) setPendingOrders(event.detail); };
+    refresh();
+    window.addEventListener("orders:count", receiveCount);
+    return () => { active = false; window.removeEventListener("orders:count", receiveCount); };
+  }, [location.pathname]);
+  return <main className="app-shell">
+    <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>
+      <div className="brand-row"><div className="brand-mark">O</div><div><strong>Obsidian Mesa</strong><span>Gestión de restaurantes</span></div><button className="close-menu" onClick={() => setMenuOpen(false)}>×</button></div>
+      <div className="restaurant-switcher"><span className="eyebrow">RESTAURANTE ACTUAL</span><button><span className="restaurant-avatar">OM</span><span><strong>{restaurant}</strong><small>Sede principal</small></span><span>⌄</span></button></div>
+      <nav>{navigation.map(([label, path, icon]) => <NavLink key={path} to={path} onClick={() => setMenuOpen(false)} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}><span className="nav-icon">{icon}</span>{label}{label === "Pedidos" && <span className={`nav-count ${pendingOrders === null ? "loading" : ""}`}>{pendingOrders === null ? "…" : pendingOrders}</span>}</NavLink>)}</nav>
+      <div className="sidebar-footer"><div className="trial-card"><div><span>Prueba gratuita</span><strong>15 días</strong></div><div className="trial-progress"><span /></div><button>Ver mi plan</button></div><button className="profile-button" onClick={closeSession}><span className="profile-avatar">AC</span><span><strong>{user?.email?.split("@")[0] || "Administrador"}</strong><small>Cerrar sesión</small></span><span>→</span></button></div>
+    </aside>
+    {menuOpen && <button className="sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
+    <section className="workspace"><header className="topbar"><button className="menu-trigger" onClick={() => setMenuOpen(true)}>☰</button><div className="breadcrumb"><span>Sede principal</span><i /><strong>Obsidian Mesa</strong></div><div className="topbar-actions"><button className="status-button"><span /> Sistema conectado</button><button className="notification-button">◎<span /></button></div></header><ErrorBoundary><Outlet /></ErrorBoundary></section>
+  </main>;
+}

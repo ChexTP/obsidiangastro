@@ -1,0 +1,10 @@
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { registerUser } from "../../controllers/authController";
+import { saveSession } from "../../utils/api";
+
+export default function RegisterPage() {
+  const [form,setForm]=useState({displayName:"",email:"",password:""}); const [error,setError]=useState(""); const [message,setMessage]=useState(""); const navigate=useNavigate();
+  const submit=async(e)=>{e.preventDefault();setError("");try{const result=await registerUser(form);if(result.session){saveSession(result.session);window.location.assign("/onboarding");}else setMessage(result.message);}catch(err){setError(err.message)}};
+  return <main className="auth-shell"><section className="auth-story register-story"><Link to="/" className="auth-brand"><span>O</span><strong>Obsidian Mesa</strong></Link><div className="story-copy"><span className="eyebrow light">15 DÍAS GRATIS</span><h1>Empieza simple.<br/>Crece a tu ritmo.</h1><p>Configura tu restaurante y organiza toda tu operación.</p></div></section><section className="auth-panel"><div className="auth-form-wrap"><span className="auth-kicker">CREA TU CUENTA</span><h2>Comienza gratis</h2>{message?<div className="confirmation-box"><span>✓</span><h3>Revisa tu correo</h3><p>{message}</p><Link to="/login">Volver al inicio</Link></div>:<form className="auth-form" onSubmit={submit}><label>Tu nombre<input value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})} required/></label><label>Correo electrónico<input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} required/></label><label>Contraseña<input type="password" minLength="8" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} required/></label>{error&&<div className="form-alert">{error}</div>}<button className="auth-submit">Crear cuenta gratis <span>→</span></button></form>}<p className="auth-switch">¿Ya tienes una cuenta? <Link to="/login">Iniciar sesión</Link></p></div></section></main>;
+}
