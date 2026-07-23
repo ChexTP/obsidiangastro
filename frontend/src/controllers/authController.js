@@ -5,7 +5,7 @@ export const loginUser = async (credentials) => {
   saveSession(result.session);
   const profile = await apiRequest("/auth/me");
   if (profile.memberships?.[0]) saveTenant(profile.memberships[0].tenant_id);
-  return { profile, needsOnboarding: !profile.memberships?.length };
+  return { profile, isPlatformAdmin: Boolean(profile.isPlatformAdmin), needsOnboarding: !profile.memberships?.length && !profile.isPlatformAdmin };
 };
 
 export const registerUser = (data) => apiRequest("/auth/register", { method: "POST", body: JSON.stringify(data) });

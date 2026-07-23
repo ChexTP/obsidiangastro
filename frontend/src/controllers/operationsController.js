@@ -1,6 +1,9 @@
 import { apiRequest } from "../utils/api";
 export const getCatalog=()=>apiRequest("/operations/catalog");
 export const createProduct=(data)=>apiRequest("/operations/products",{method:"POST",body:JSON.stringify(data)});
+export const updateProduct=(id,data)=>apiRequest(`/operations/products/${id}`,{method:"PATCH",body:JSON.stringify(data)});
+export const deleteProduct=(id)=>apiRequest(`/operations/products/${id}`,{method:"DELETE"});
+export const saveProductOptions=(id,groups)=>apiRequest(`/operations/products/${id}/options`,{method:"PUT",body:JSON.stringify({groups})});
 export const createCategory=(name)=>apiRequest("/operations/categories",{method:"POST",body:JSON.stringify({name})});
 export const getDailyMenu=(date)=>apiRequest(`/operations/daily-menu?date=${encodeURIComponent(date)}`);
 export const saveDailyMenu=(date,items)=>apiRequest("/operations/daily-menu",{method:"PUT",body:JSON.stringify({date,items})});

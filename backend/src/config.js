@@ -16,6 +16,8 @@ export const SUPABASE_ANON_KEY = required("SUPABASE_ANON_KEY");
 export const SUPABASE_SERVICE_ROLE_KEY = required("SUPABASE_SERVICE_ROLE_KEY");
 export const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 export const PUBLIC_WEB_URL = process.env.PUBLIC_WEB_URL || "http://localhost:3000";
+export const SAAS_ADMIN_EMAILS = (process.env.SAAS_ADMIN_EMAILS || "")
+  .split(",").map((email) => email.trim().toLowerCase()).filter(Boolean);
 export const ALLOWED_ORIGINS = Array.from(new Set([
   ...(process.env.ALLOWED_ORIGINS || "").split(","),
   FRONTEND_URL,

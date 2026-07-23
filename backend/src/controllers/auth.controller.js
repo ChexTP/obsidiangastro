@@ -1,5 +1,6 @@
 import { listMembershipsByUser } from "../models/accounts.model.js";
 import { PUBLIC_WEB_URL } from "../config.js";
+import { SAAS_ADMIN_EMAILS } from "../config.js";
 import { loginUser, registerUser, requestPasswordReset } from "../models/auth.model.js";
 
 const validEmail = (email) => typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -61,7 +62,7 @@ export const postForgotPassword = async (req, res) => {
 export const getProfile = async (req, res) => {
   try {
     const memberships = await listMembershipsByUser(req.user.id);
-    res.json({ user: req.user, memberships });
+    res.json({ user: req.user, memberships, isPlatformAdmin: SAAS_ADMIN_EMAILS.includes((req.user.email || "").toLowerCase()) });
   } catch (error) {
     res.status(500).json({ message: "Error al obtener el perfil", error: error.message });
   }

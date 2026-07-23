@@ -15,6 +15,8 @@ import EmployeesPage from "./modules/employees/EmployeesPage";
 import ReportsPage from "./modules/reports/ReportsPage";
 import SettingsPage from "./modules/settings/SettingsPage";
 import PrintOrderPage from "./modules/print/PrintOrderPage";
+import SubscriptionPage from "./modules/subscription/SubscriptionPage";
+import SaasAdminPage from "./modules/saas/SaasAdminPage";
 
 export default function App() {
   return <Routes>
@@ -33,6 +35,8 @@ export default function App() {
       <Route path="/empleados" element={<EmployeesPage />} />
       <Route path="/informes" element={<ReportsPage />} />
       <Route path="/configuracion" element={<SettingsPage />} />
+      <Route path="/suscripcion" element={<SubscriptionPage />} />
+      <Route path="/admin-saas" element={<SaasAdminPage />} />
       <Route index element={<Navigate to="/dashboard" replace />} />
     </Route>
     <Route path="*" element={<Navigate to="/dashboard" replace />} />
