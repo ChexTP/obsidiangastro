@@ -5,6 +5,9 @@ export const getDefaultBranch = async (tenantId) => (await query(supabaseAdmin.f
 
 export const listCategories = (tenantId) => query(supabaseAdmin.from("product_categories").select("*").eq("tenant_id",tenantId).order("sort_order"));
 export const createCategory = (tenantId, values) => query(supabaseAdmin.from("product_categories").insert({tenant_id:tenantId,...values}).select().single());
+export const updateCategory = (tenantId,id,values) => query(supabaseAdmin.from("product_categories").update(values).eq("tenant_id",tenantId).eq("id",id).select().single());
+export const categoryProductCount = async (tenantId,id) => {const {count,error}=await supabaseAdmin.from("products").select("id",{count:"exact",head:true}).eq("tenant_id",tenantId).eq("category_id",id).eq("is_active",true);if(error)throw error;return count||0};
+export const deactivateCategory = (tenantId,id) => query(supabaseAdmin.from("product_categories").update({is_active:false}).eq("tenant_id",tenantId).eq("id",id).select().single());
 const productSelection="*,product_categories(name),product_option_groups(*,product_options(*,component_product:products!product_options_component_product_id_fkey(id,name,is_active)))";
 export const listProducts = (tenantId) => query(supabaseAdmin.from("products").select(productSelection).eq("tenant_id",tenantId).order("name"));
 export const findProduct = async (tenantId,id) => { const {data,error}=await supabaseAdmin.from("products").select(productSelection).eq("tenant_id",tenantId).eq("id",id).maybeSingle();if(error)throw error;return data; };

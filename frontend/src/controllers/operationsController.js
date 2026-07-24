@@ -5,6 +5,8 @@ export const updateProduct=(id,data)=>apiRequest(`/operations/products/${id}`,{m
 export const deleteProduct=(id)=>apiRequest(`/operations/products/${id}`,{method:"DELETE"});
 export const saveProductOptions=(id,groups)=>apiRequest(`/operations/products/${id}/options`,{method:"PUT",body:JSON.stringify({groups})});
 export const createCategory=(name)=>apiRequest("/operations/categories",{method:"POST",body:JSON.stringify({name})});
+export const updateCategory=(id,name)=>apiRequest(`/operations/categories/${id}`,{method:"PATCH",body:JSON.stringify({name})});
+export const deleteCategory=(id)=>apiRequest(`/operations/categories/${id}`,{method:"DELETE"});
 export const getDailyMenu=(date)=>apiRequest(`/operations/daily-menu?date=${encodeURIComponent(date)}`);
 export const saveDailyMenu=(date,items)=>apiRequest("/operations/daily-menu",{method:"PUT",body:JSON.stringify({date,items})});
 export const updateDailyMenuAvailability=(id,availability)=>apiRequest(`/operations/daily-menu/items/${id}`,{method:"PATCH",body:JSON.stringify({availability})});
@@ -25,5 +27,7 @@ export const openCash=(data)=>apiRequest("/operations/cash/open",{method:"POST",
 export const closeCash=(id,data)=>apiRequest(`/operations/cash/${id}/close`,{method:"POST",body:JSON.stringify(data)});
 export const addCashMovement=(id,data)=>apiRequest(`/operations/cash/${id}/movements`,{method:"POST",body:JSON.stringify(data)});
 export const getEmployees=()=>apiRequest("/employees");
+export const createEmployee=(data)=>apiRequest("/employees",{method:"POST",body:JSON.stringify(data)});
 export const inviteEmployee=(data)=>apiRequest("/employees/invitations",{method:"POST",body:JSON.stringify(data)});
+export const updateEmployee=(id,data)=>apiRequest(`/employees/${id}`,{method:"PATCH",body:JSON.stringify(data)});
 export const getReportSummary=(period="day",date="")=>apiRequest(`/operations/reports/summary?period=${encodeURIComponent(period)}${date?`&date=${encodeURIComponent(date)}`:""}`);

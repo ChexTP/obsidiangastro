@@ -50,6 +50,17 @@ export const inviteEmployee = async ({ accessToken, tenantId, email, displayName
   }
 };
 
+export const createEmployeeAccount = async ({accessToken,tenantId,email,password,displayName,role}) => {
+  const {data:created,error:createError}=await supabaseAdmin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{display_name:displayName}});
+  if(createError)throw createError;const userId=created.user?.id;if(!userId)throw new Error("No fue posible crear el usuario");
+  try{
+    const supabaseUser=createUserSupabaseClient(accessToken);
+    const{error}=await supabaseUser.rpc("invite_tenant_member",{p_tenant_id:tenantId,p_user_id:userId,p_role:role,p_display_name:displayName});if(error)throw error;
+    const{error:activeError}=await supabaseAdmin.from("tenant_memberships").update({status:"active"}).eq("tenant_id",tenantId).eq("user_id",userId);if(activeError)throw activeError;
+    return{userId,email,role,status:"active"};
+  }catch(error){await supabaseAdmin.auth.admin.deleteUser(userId);throw error}
+};
+
 export const findMembershipById = async ({ tenantId, membershipId }) => {
   const { data, error } = await supabaseAdmin
     .from("tenant_memberships")

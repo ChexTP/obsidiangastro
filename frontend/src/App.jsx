@@ -17,6 +17,7 @@ import SettingsPage from "./modules/settings/SettingsPage";
 import PrintOrderPage from "./modules/print/PrintOrderPage";
 import SubscriptionPage from "./modules/subscription/SubscriptionPage";
 import SaasAdminPage from "./modules/saas/SaasAdminPage";
+import RoleRoute from "./components/RoleRoute";
 
 export default function App() {
   return <Routes>
@@ -26,16 +27,16 @@ export default function App() {
     <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
     <Route path="/imprimir/pedido/:id" element={<ProtectedRoute><PrintOrderPage /></ProtectedRoute>} />
     <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-      <Route path="/dashboard" element={<DashboardPage />} />
-      <Route path="/pedidos" element={<OrdersPage />} />
-      <Route path="/menu" element={<MenuPage />} />
-      <Route path="/mesas" element={<TablesPage />} />
-      <Route path="/cocina" element={<KitchenPage />} />
-      <Route path="/caja" element={<CashPage />} />
-      <Route path="/empleados" element={<EmployeesPage />} />
-      <Route path="/informes" element={<ReportsPage />} />
-      <Route path="/configuracion" element={<SettingsPage />} />
-      <Route path="/suscripcion" element={<SubscriptionPage />} />
+      <Route path="/dashboard" element={<RoleRoute roles={["owner","admin"]}><DashboardPage /></RoleRoute>} />
+      <Route path="/pedidos" element={<RoleRoute roles={["owner","admin","cashier","waiter"]}><OrdersPage /></RoleRoute>} />
+      <Route path="/menu" element={<RoleRoute roles={["owner","admin"]}><MenuPage /></RoleRoute>} />
+      <Route path="/mesas" element={<RoleRoute roles={["owner","admin","cashier","waiter"]}><TablesPage /></RoleRoute>} />
+      <Route path="/cocina" element={<RoleRoute roles={["owner","admin","kitchen"]}><KitchenPage /></RoleRoute>} />
+      <Route path="/caja" element={<RoleRoute roles={["owner","admin","cashier"]}><CashPage /></RoleRoute>} />
+      <Route path="/empleados" element={<RoleRoute roles={["owner","admin"]}><EmployeesPage /></RoleRoute>} />
+      <Route path="/informes" element={<RoleRoute roles={["owner","admin","auditor"]}><ReportsPage /></RoleRoute>} />
+      <Route path="/configuracion" element={<RoleRoute roles={["owner","admin"]}><SettingsPage /></RoleRoute>} />
+      <Route path="/suscripcion" element={<RoleRoute roles={["owner","admin"]}><SubscriptionPage /></RoleRoute>} />
       <Route path="/admin-saas" element={<SaasAdminPage />} />
       <Route index element={<Navigate to="/dashboard" replace />} />
     </Route>

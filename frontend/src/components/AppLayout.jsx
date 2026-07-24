@@ -5,9 +5,9 @@ import { getOrders } from "../controllers/operationsController";
 import ErrorBoundary from "./ErrorBoundary";
 
 const navigation = [
-  ["Inicio", "/dashboard", "IN"], ["Pedidos", "/pedidos", "PD"], ["Menú", "/menu", "MN"],
-  ["Mesas", "/mesas", "MS"], ["Cocina", "/cocina", "CO"], ["Caja", "/caja", "CJ"],
-  ["Empleados", "/empleados", "EM"], ["Informes", "/informes", "IF"], ["Configuración", "/configuracion", "CF"],
+  ["Inicio", "/dashboard", "IN",["owner","admin"]], ["Pedidos", "/pedidos", "PD",["owner","admin","cashier","waiter"]], ["Menú", "/menu", "MN",["owner","admin"]],
+  ["Mesas", "/mesas", "MS",["owner","admin","cashier","waiter"]], ["Cocina", "/cocina", "CO",["owner","admin","kitchen"]], ["Caja", "/caja", "CJ",["owner","admin","cashier"]],
+  ["Empleados", "/empleados", "EM",["owner","admin"]], ["Informes", "/informes", "IF",["owner","admin","auditor"]], ["Configuración", "/configuracion", "CF",["owner","admin"]],
 ];
 
 export default function AppLayout() {
@@ -17,6 +17,8 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const membership = memberships[0];
+  const role = membership?.role;
+  const visibleNavigation = navigation.filter(([, , , roles]) => roles.includes(role));
   const canManageSubscription = ["owner", "admin"].includes(membership?.role);
   const restaurant = membership?.tenants?.business_name || "Mi restaurante";
   const closeSession = () => { logout(); navigate("/login"); };
@@ -32,7 +34,7 @@ export default function AppLayout() {
     <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>
       <div className="brand-row"><div className="brand-mark">O</div><div><strong>Obsidian Mesa</strong><span>Gestión de restaurantes</span></div><button className="close-menu" onClick={() => setMenuOpen(false)}>×</button></div>
       <div className="restaurant-switcher"><span className="eyebrow">RESTAURANTE ACTUAL</span><button><span className="restaurant-avatar">OM</span><span><strong>{restaurant}</strong><small>Sede principal</small></span><span>⌄</span></button></div>
-      <nav>{navigation.map(([label, path, icon]) => <NavLink key={path} to={path} onClick={() => setMenuOpen(false)} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}><span className="nav-icon">{icon}</span>{label}{label === "Pedidos" && <span className={`nav-count ${pendingOrders === null ? "loading" : ""}`}>{pendingOrders === null ? "…" : pendingOrders}</span>}</NavLink>)}{canManageSubscription&&<NavLink to="/suscripcion" onClick={() => setMenuOpen(false)} className={({isActive})=>`nav-item ${isActive?"active":""}`}><span className="nav-icon">PL</span>Mi plan</NavLink>}{isPlatformAdmin&&<NavLink to="/admin-saas" onClick={() => setMenuOpen(false)} className={({isActive})=>`nav-item ${isActive?"active":""}`}><span className="nav-icon">SA</span>Administración SaaS</NavLink>}</nav>
+      <nav>{visibleNavigation.map(([label, path, icon]) => <NavLink key={path} to={path} onClick={() => setMenuOpen(false)} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}><span className="nav-icon">{icon}</span>{label}{label === "Pedidos" && <span className={`nav-count ${pendingOrders === null ? "loading" : ""}`}>{pendingOrders === null ? "…" : pendingOrders}</span>}</NavLink>)}{canManageSubscription&&<NavLink to="/suscripcion" onClick={() => setMenuOpen(false)} className={({isActive})=>`nav-item ${isActive?"active":""}`}><span className="nav-icon">PL</span>Mi plan</NavLink>}{isPlatformAdmin&&<NavLink to="/admin-saas" onClick={() => setMenuOpen(false)} className={({isActive})=>`nav-item ${isActive?"active":""}`}><span className="nav-icon">SA</span>Administración SaaS</NavLink>}</nav>
       <div className="sidebar-footer">{canManageSubscription&&<div className="trial-card"><div><span>Suscripción</span><strong>Plan actual</strong></div><div className="trial-progress"><span /></div><button onClick={()=>navigate("/suscripcion")}>Ver mi plan</button></div>}<button className="profile-button" onClick={closeSession}><span className="profile-avatar">AC</span><span><strong>{user?.email?.split("@")[0] || "Administrador"}</strong><small>Cerrar sesión</small></span><span>→</span></button></div>
     </aside>
     {menuOpen && <button className="sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
