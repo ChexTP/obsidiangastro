@@ -6,7 +6,7 @@ import ErrorBoundary from "./ErrorBoundary";
 
 const navigation = [
   ["Inicio", "/dashboard", "IN",["owner","admin"]], ["Pedidos", "/pedidos", "PD",["owner","admin","cashier","waiter"]], ["Menú", "/menu", "MN",["owner","admin"]],
-  ["Mesas", "/mesas", "MS",["owner","admin","cashier","waiter"]], ["Cocina", "/cocina", "CO",["owner","admin","kitchen"]], ["Caja", "/caja", "CJ",["owner","admin","cashier"]],
+  ["Mesas", "/mesas", "MS",["owner","admin","cashier","waiter"]], ["Cocina", "/cocina", "CO",["owner","admin","kitchen"]], ["Caja", "/caja", "CJ",["owner","admin","cashier"]], ["Inventario", "/inventario", "IV",["owner","admin","cashier"]],
   ["Empleados", "/empleados", "EM",["owner","admin"]], ["Informes", "/informes", "IF",["owner","admin","auditor"]], ["Configuración", "/configuracion", "CF",["owner","admin"]],
 ];
 

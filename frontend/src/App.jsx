@@ -18,6 +18,7 @@ import PrintOrderPage from "./modules/print/PrintOrderPage";
 import SubscriptionPage from "./modules/subscription/SubscriptionPage";
 import SaasAdminPage from "./modules/saas/SaasAdminPage";
 import RoleRoute from "./components/RoleRoute";
+import InventoryPage from "./modules/inventory/InventoryPage";
 
 export default function App() {
   return <Routes>
@@ -33,6 +34,7 @@ export default function App() {
       <Route path="/mesas" element={<RoleRoute roles={["owner","admin","cashier","waiter"]}><TablesPage /></RoleRoute>} />
       <Route path="/cocina" element={<RoleRoute roles={["owner","admin","kitchen"]}><KitchenPage /></RoleRoute>} />
       <Route path="/caja" element={<RoleRoute roles={["owner","admin","cashier"]}><CashPage /></RoleRoute>} />
+      <Route path="/inventario" element={<RoleRoute roles={["owner","admin","cashier"]}><InventoryPage /></RoleRoute>} />
       <Route path="/empleados" element={<RoleRoute roles={["owner","admin"]}><EmployeesPage /></RoleRoute>} />
       <Route path="/informes" element={<RoleRoute roles={["owner","admin","auditor"]}><ReportsPage /></RoleRoute>} />
       <Route path="/configuracion" element={<RoleRoute roles={["owner","admin"]}><SettingsPage /></RoleRoute>} />

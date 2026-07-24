@@ -58,3 +58,18 @@ export async function downloadReportPdf({ data, profile, period, date }) {
   const pages = doc.getNumberOfPages(); for (let page = 1; page <= pages; page += 1) { doc.setPage(page); doc.setFontSize(7); doc.setTextColor(100); doc.text(`Página ${page} de ${pages}`, 285, 202, { align: "right" }); }
   doc.save(`informe-${period}-${date}.pdf`);
 }
+
+export async function downloadInventoryExcel({rows,profile,date}){
+  const{default:ExcelJS}=await import("exceljs");const workbook=new ExcelJS.Workbook();workbook.creator="Obsidian Gastro";const sheet=workbook.addWorksheet("Inventario",{views:[{state:"frozen",ySplit:14}]});styleSheet(sheet,"Inventario del día",profile,"Día",date);
+  addTable(sheet,14,["Producto","Categoría","Existencia inicial","Disponible","Estado"],rows.map(row=>[row.name,row.category,row.initialLabel,row.remainingLabel,row.statusLabel]));
+  sheet.getColumn(1).width=30;sheet.getColumn(2).width=24;sheet.getColumn(3).width=20;sheet.getColumn(4).width=20;sheet.getColumn(5).width=18;sheet.pageSetup={orientation:"landscape",fitToPage:true,fitToWidth:1,fitToHeight:0};
+  const buffer=await workbook.xlsx.writeBuffer();downloadBlob(new Blob([buffer],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),`inventario-${date}.xlsx`);
+}
+
+export async function downloadInventoryPdf({rows,profile,date}){
+  const[{jsPDF},{autoTable}]=await Promise.all([import("jspdf"),import("jspdf-autotable")]);const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
+  doc.setFillColor(23,63,50);doc.rect(0,0,297,22,"F");doc.setTextColor(255);doc.setFontSize(17);doc.setFont("helvetica","bold");doc.text("Inventario del día",12,14);doc.setTextColor(35);doc.setFontSize(8);
+  profileRows(profile).slice(0,10).forEach(([label,value],index)=>{const column=index<5?12:104,row=index%5;doc.setFont("helvetica","bold");doc.text(`${label}:`,column,30+row*5);doc.setFont("helvetica","normal");doc.text(String(value),column+31,30+row*5,{maxWidth:58})});doc.setFont("helvetica","bold");doc.text("Fecha:",205,30);doc.setFont("helvetica","normal");doc.text(date,224,30);
+  autoTable(doc,{startY:58,head:[["Producto","Categoría","Existencia inicial","Disponible","Estado"]],body:rows.map(row=>[row.name,row.category,row.initialLabel,row.remainingLabel,row.statusLabel]),theme:"striped",headStyles:{fillColor:[46,102,84]},styles:{fontSize:8}});
+  doc.save(`inventario-${date}.pdf`);
+}
