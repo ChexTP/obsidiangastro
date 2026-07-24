@@ -161,6 +161,13 @@ export const refundOrder = async ({tenantId,order,userId,cashSessionId,reason}) 
 
 export const currentCashSession = async (tenantId) => { const {data,error}=await supabaseAdmin.from("cash_sessions").select("*,cash_movements(*),payments(*),refunds(*)").eq("tenant_id",tenantId).eq("status","open").maybeSingle(); if(error)throw error; return data; };
 export const listClosedCashSessions = (tenantId) => query(supabaseAdmin.from("cash_sessions").select("*,cash_movements(*),payments(*),refunds(*)").eq("tenant_id",tenantId).eq("status","closed").order("closed_at",{ascending:false}).limit(50));
+export const listCashSessionsInRange = (tenantId,from,to) => query(supabaseAdmin.from("cash_sessions").select("*,cash_movements(*),payments(*),refunds(*)").eq("tenant_id",tenantId).gte("opened_at",from).lt("opened_at",to).order("opened_at",{ascending:true}));
+export const listPaidOrderItemsForCashSession = async (tenantId,sessionId) => {
+  const payments=await query(supabaseAdmin.from("payments").select("order_id").eq("tenant_id",tenantId).eq("cash_session_id",sessionId));
+  const orderIds=[...new Set(payments.map(item=>item.order_id).filter(Boolean))];
+  if(!orderIds.length)return[];
+  return query(supabaseAdmin.from("orders").select("id,order_items(product_id,product_name,quantity,selections)").eq("tenant_id",tenantId).eq("status","paid").in("id",orderIds));
+};
 export const openCashSession = async (tenantId,userId,openingAmount,notes) => { const branch=await getDefaultBranch(tenantId); return query(supabaseAdmin.from("cash_sessions").insert({tenant_id:tenantId,branch_id:branch.id,opened_by:userId,opening_amount:openingAmount,notes}).select().single()); };
 export const addCashMovement = (tenantId,userId,sessionId,values) => query(supabaseAdmin.from("cash_movements").insert({tenant_id:tenantId,created_by:userId,cash_session_id:sessionId,...values}).select().single());
 export const listCashMovementsInRange = (tenantId,from,to) => query(supabaseAdmin.from("cash_movements").select("*,cash_sessions(branch_id)").eq("tenant_id",tenantId).gte("created_at",from).lt("created_at",to).order("created_at",{ascending:false}));

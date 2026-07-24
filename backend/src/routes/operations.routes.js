@@ -42,6 +42,7 @@ router.post("/orders/:id/refund",roles("cashier"),c.postOrderRefund);
 
 router.get("/cash",roles("cashier"),c.getCash);
 router.get("/cash/history",roles("cashier"),c.getCashHistory);
+router.get("/cash/product-sales",roles("cashier"),c.getCashProductSales);
 router.post("/cash/open",roles("cashier"),c.postCashOpen);
 router.post("/cash/:id/movements",roles("cashier"),c.postCashMovement);
 router.post("/cash/:id/close",roles("cashier"),c.postCashClose);

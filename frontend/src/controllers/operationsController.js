@@ -27,6 +27,7 @@ export const cancelOrder=(id)=>apiRequest(`/operations/orders/${id}/cancel`,{met
 export const refundOrder=(id,reason)=>apiRequest(`/operations/orders/${id}/refund`,{method:"POST",body:JSON.stringify({reason})});
 export const getCash=()=>apiRequest("/operations/cash");
 export const getCashHistory=()=>apiRequest("/operations/cash/history");
+export const getCashProductSales=()=>apiRequest("/operations/cash/product-sales");
 export const openCash=(data)=>apiRequest("/operations/cash/open",{method:"POST",body:JSON.stringify(data)});
 export const closeCash=(id,data)=>apiRequest(`/operations/cash/${id}/close`,{method:"POST",body:JSON.stringify(data)});
 export const addCashMovement=(id,data)=>apiRequest(`/operations/cash/${id}/movements`,{method:"POST",body:JSON.stringify(data)});

@@ -107,8 +107,58 @@ export const postOrderCancellation=async(req,res)=>{try{const order=await model.
 export const postOrderRefund=async(req,res)=>{try{const order=await model.findOrder(req.tenantId,req.params.id);if(!order)return res.status(404).json({message:"Pedido no encontrado"});if(order.status!=="paid")return res.status(409).json({message:"Solo se pueden devolver pedidos pagados"});const reason=req.body.reason?.trim();if(!reason||reason.length<3)return res.status(400).json({message:"Indica el motivo de la devolución"});const cashSession=await model.currentCashSession(req.tenantId);if(!cashSession)return res.status(409).json({message:"Debes abrir una caja para registrar la devolución"});res.json({message:"Devolución registrada",data:await model.refundOrder({tenantId:req.tenantId,order,userId:req.user.id,cashSessionId:cashSession.id,reason})})}catch(e){fail(res,"Error al registrar la devolución",e)}};
 export const getCash=async(req,res)=>{try{res.json({session:await model.currentCashSession(req.tenantId)})}catch(e){fail(res,"Error al consultar caja",e)}};
 export const getCashHistory=async(req,res)=>{try{res.json({sessions:await model.listClosedCashSessions(req.tenantId)})}catch(e){fail(res,"Error al consultar historial de cajas",e)}};
+export const getCashProductSales=async(req,res)=>{try{
+  const session=await model.currentCashSession(req.tenantId);
+  if(!session)return res.json({session:null,products:[]});
+  const [orders,products]=await Promise.all([model.listPaidOrderItemsForCashSession(req.tenantId,session.id),model.listProducts(req.tenantId)]);
+  const quantities=new Map();
+  orders.flatMap(order=>order.order_items||[]).forEach(item=>{
+    const quantity=Number(item.quantity)||0;
+    if(item.product_id)quantities.set(item.product_id,(quantities.get(item.product_id)||0)+quantity);
+    const selections=Array.isArray(item.selections)?item.selections:[];
+    selections.forEach(selection=>{const productId=selection.productId||selection.componentProductId;if(productId)quantities.set(productId,(quantities.get(productId)||0)+quantity)});
+  });
+  res.json({session:{id:session.id,openedAt:session.opened_at},products:products.filter(product=>product.is_active).map(product=>({id:product.id,name:product.name,category:product.product_categories?.name||"Sin categoría",quantity:quantities.get(product.id)||0}))});
+}catch(e){fail(res,"Error al consultar unidades vendidas",e)}};
 export const postCashOpen=async(req,res)=>{try{if(await model.currentCashSession(req.tenantId))return res.status(409).json({message:"Ya existe una caja abierta"});res.status(201).json(await model.openCashSession(req.tenantId,req.user.id,Number(req.body.openingAmount)||0,req.body.notes||null))}catch(e){fail(res,"Error al abrir caja",e)}};
 export const postCashMovement=async(req,res)=>{try{const amount=Number(req.body.amount);if(!["income","expense"].includes(req.body.kind)||!Number.isFinite(amount)||amount<=0||!req.body.concept?.trim())return res.status(400).json({message:"Tipo, valor y concepto son obligatorios"});res.status(201).json(await model.addCashMovement(req.tenantId,req.user.id,req.params.id,{kind:req.body.kind,amount,concept:req.body.concept.trim()}))}catch(e){fail(res,"Error al registrar movimiento",e)}};
 export const postCashClose=async(req,res)=>{try{res.json(await model.closeCashSession(req.tenantId,req.params.id,req.user.id,Number(req.body.closingAmount)||0))}catch(e){fail(res,"Error al cerrar caja",e)}};
 const reportRange=(period,dateValue)=>{const base=validDate(dateValue)?new Date(`${dateValue}T00:00:00-05:00`):new Date();const colombia=new Date(base.toLocaleString("en-US",{timeZone:"America/Bogota"}));let year=colombia.getFullYear(),month=colombia.getMonth(),day=colombia.getDate();if(period==="week"){const weekday=new Date(year,month,day).getDay()||7;day-=weekday-1}if(period==="month")day=1;const pad=value=>String(value).padStart(2,"0");const startDate=`${year}-${pad(month+1)}-${pad(day)}`;const start=new Date(`${startDate}T00:00:00-05:00`);const end=new Date(start);if(period==="month")end.setUTCMonth(end.getUTCMonth()+1);else end.setUTCDate(end.getUTCDate()+(period==="week"?7:1));return{from:start.toISOString(),to:end.toISOString(),period:period||"day",startDate}};
-export const getReportSummary=async(req,res)=>{try{const period=["day","week","month"].includes(req.query.period)?req.query.period:"day";const range=reportRange(period,req.query.date);const [orders,movements,refunds]=await Promise.all([model.listOrdersInRange(req.tenantId,range.from,range.to),model.listCashMovementsInRange(req.tenantId,range.from,range.to),model.listRefundsInRange(req.tenantId,range.from,range.to)]);const valid=orders.filter(o=>o.status==="paid");const sales=valid.reduce((s,o)=>s+Number(o.total),0);const refundTotal=refunds.reduce((s,item)=>s+Number(item.amount),0);const deliveryFees=valid.filter(o=>o.service_type==="delivery").reduce((s,o)=>s+Number(o.service_fee||0),0);const packagingFees=valid.filter(o=>o.service_type==="takeaway").reduce((s,o)=>s+Number(o.service_fee||0),0);const paymentTotals={cash:0,card:0,transfer:0};valid.flatMap(o=>o.payments||[]).forEach(payment=>{paymentTotals[payment.method]+=Number(payment.amount)});const expenses=movements.filter(m=>m.kind==="expense");const expenseTotal=expenses.reduce((s,m)=>s+Number(m.amount),0);const refundOrders=new Map();refunds.forEach(item=>{const key=item.order_id;if(!refundOrders.has(key))refundOrders.set(key,{id:key,number:item.orders?.order_number,date:item.created_at,reason:item.reason,total:0,refunds:[]});const entry=refundOrders.get(key);entry.total+=Number(item.amount);entry.refunds.push(item)});res.json({range,sales,refundTotal,foodSales:sales-deliveryFees-packagingFees,deliveryFees,packagingFees,paymentTotals,expenseTotal,orders:valid.length,average:valid.length?sales/valid.length:0,salesDetail:valid.map(o=>({id:o.id,number:o.order_number,date:o.created_at,serviceType:o.service_type,reference:o.dining_tables?.name||o.customer_name||o.notes||"Pedido",foodSubtotal:Number(o.subtotal),serviceFee:Number(o.service_fee||0),total:Number(o.total),items:o.order_items,payments:o.payments||[]})),refundDetail:[...refundOrders.values()],expenseDetail:expenses.map(m=>({id:m.id,date:m.created_at,concept:m.concept,amount:Number(m.amount)}))})}catch(e){fail(res,"Error al generar informe",e)}};
+export const getReportSummary=async(req,res)=>{try{
+  const period=["day","week","month"].includes(req.query.period)?req.query.period:"day";
+  const range=reportRange(period,req.query.date);
+  const [orders,movements,refunds,cashSessions]=await Promise.all([
+    model.listOrdersInRange(req.tenantId,range.from,range.to),
+    model.listCashMovementsInRange(req.tenantId,range.from,range.to),
+    model.listRefundsInRange(req.tenantId,range.from,range.to),
+    model.listCashSessionsInRange(req.tenantId,range.from,range.to)
+  ]);
+  const valid=orders.filter(order=>order.status==="paid");
+  const sales=valid.reduce((sum,order)=>sum+Number(order.total),0);
+  const refundTotal=refunds.reduce((sum,item)=>sum+Number(item.amount),0);
+  const deliveryFees=valid.filter(order=>order.service_type==="delivery").reduce((sum,order)=>sum+Number(order.service_fee||0),0);
+  const packagingFees=valid.filter(order=>order.service_type==="takeaway").reduce((sum,order)=>sum+Number(order.service_fee||0),0);
+  const paymentTotals={cash:0,card:0,transfer:0};
+  cashSessions.flatMap(session=>session.payments||[]).forEach(payment=>{paymentTotals[payment.method]=(paymentTotals[payment.method]||0)+Number(payment.amount)});
+  const expenses=movements.filter(item=>item.kind==="expense");
+  const incomes=movements.filter(item=>item.kind==="income");
+  const expenseTotal=expenses.reduce((sum,item)=>sum+Number(item.amount),0);
+  const incomeTotal=incomes.reduce((sum,item)=>sum+Number(item.amount),0);
+  const openingBase=cashSessions.reduce((sum,item)=>sum+Number(item.opening_amount||0),0);
+  const cashRefundTotal=refunds.filter(item=>item.method==="cash").reduce((sum,item)=>sum+Number(item.amount),0);
+  const expectedCash=openingBase+paymentTotals.cash+incomeTotal-expenseTotal-cashRefundTotal;
+  const expectedBalance=openingBase+Object.values(paymentTotals).reduce((sum,value)=>sum+value,0)+incomeTotal-expenseTotal-refundTotal;
+  const cashSessionDetail=cashSessions.map(session=>{
+    const sessionPayments={cash:0,card:0,transfer:0};
+    (session.payments||[]).forEach(payment=>{sessionPayments[payment.method]=(sessionPayments[payment.method]||0)+Number(payment.amount)});
+    const sessionIncomes=(session.cash_movements||[]).filter(item=>item.kind==="income").reduce((sum,item)=>sum+Number(item.amount),0);
+    const sessionExpenses=(session.cash_movements||[]).filter(item=>item.kind==="expense").reduce((sum,item)=>sum+Number(item.amount),0);
+    const sessionCashRefunds=(session.refunds||[]).filter(item=>item.method==="cash").reduce((sum,item)=>sum+Number(item.amount),0);
+    const expected=Number(session.opening_amount||0)+sessionPayments.cash+sessionIncomes-sessionExpenses-sessionCashRefunds;
+    const counted=session.closing_amount===null?null:Number(session.closing_amount);
+    return{id:session.id,openedAt:session.opened_at,closedAt:session.closed_at,status:session.status,openingBase:Number(session.opening_amount||0),payments:sessionPayments,incomes:sessionIncomes,expenses:sessionExpenses,cashRefunds:sessionCashRefunds,expectedCash:expected,countedCash:counted,difference:counted===null?null:counted-expected};
+  });
+  const refundOrders=new Map();
+  refunds.forEach(item=>{const key=item.order_id;if(!refundOrders.has(key))refundOrders.set(key,{id:key,number:item.orders?.order_number,date:item.created_at,reason:item.reason,total:0,refunds:[]});const entry=refundOrders.get(key);entry.total+=Number(item.amount);entry.refunds.push(item)});
+  res.json({range,sales,refundTotal,foodSales:sales-deliveryFees-packagingFees,deliveryFees,packagingFees,paymentTotals,openingBase,incomeTotal,cashRefundTotal,expectedCash,expectedBalance,cashSessionDetail,expenseTotal,orders:valid.length,average:valid.length?sales/valid.length:0,salesDetail:valid.map(order=>({id:order.id,number:order.order_number,date:order.created_at,serviceType:order.service_type,reference:order.dining_tables?.name||order.customer_name||order.notes||"Pedido",foodSubtotal:Number(order.subtotal),serviceFee:Number(order.service_fee||0),total:Number(order.total),items:order.order_items,payments:order.payments||[]})),refundDetail:[...refundOrders.values()],expenseDetail:expenses.map(item=>({id:item.id,date:item.created_at,concept:item.concept,amount:Number(item.amount)}))});
+}catch(e){fail(res,"Error al generar informe",e)}};
