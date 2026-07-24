@@ -68,7 +68,12 @@ export const createOrder = async (tenantId,userId,values,items=[]) => {
   const subtotal=items.reduce((sum,item)=>sum+Number(item.unit_price)*Number(item.quantity),0);
   const serviceFee=Number(values.service_fee)||0;
   const order=await query(supabaseAdmin.from("orders").insert({tenant_id:tenantId,branch_id:branch.id,created_by:userId,...values,subtotal,total:subtotal+serviceFee}).select().single());
-  if(items.length) await query(supabaseAdmin.from("order_items").insert(items.map(item=>{const{remaining_quantity,...orderItem}=item;return{tenant_id:tenantId,order_id:order.id,...orderItem}})));
+  try {
+    if(items.length) await query(supabaseAdmin.from("order_items").insert(items.map(item=>{const{remaining_quantity,...orderItem}=item;return{tenant_id:tenantId,order_id:order.id,...orderItem}})));
+  } catch(error) {
+    await supabaseAdmin.from("orders").delete().eq("tenant_id",tenantId).eq("id",order.id);
+    throw error;
+  }
   for(const item of items){
     if(item.remaining_quantity===null||item.remaining_quantity===undefined)continue;
     const remaining=item.remaining_quantity-Number(item.quantity);

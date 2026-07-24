@@ -13,7 +13,10 @@ export const apiRequest = async (path, options = {}) => {
     },
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.message || "No fue posible completar la solicitud");
+  if (!response.ok) {
+    const detail = data.error ? `: ${data.error}` : "";
+    throw new Error(`${data.message || "No fue posible completar la solicitud"}${detail}`);
+  }
   return data;
 };
 
