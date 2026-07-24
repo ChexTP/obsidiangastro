@@ -19,6 +19,7 @@ import SubscriptionPage from "./modules/subscription/SubscriptionPage";
 import SaasAdminPage from "./modules/saas/SaasAdminPage";
 import RoleRoute from "./components/RoleRoute";
 import InventoryPage from "./modules/inventory/InventoryPage";
+import TemplatesPage from "./modules/templates/TemplatesPage";
 
 export default function App() {
   return <Routes>
@@ -31,6 +32,7 @@ export default function App() {
       <Route path="/dashboard" element={<RoleRoute roles={["owner","admin"]}><DashboardPage /></RoleRoute>} />
       <Route path="/pedidos" element={<RoleRoute roles={["owner","admin","cashier","waiter"]}><OrdersPage /></RoleRoute>} />
       <Route path="/menu" element={<RoleRoute roles={["owner","admin"]}><MenuPage /></RoleRoute>} />
+      <Route path="/plantillas" element={<RoleRoute roles={["owner","admin"]}><TemplatesPage /></RoleRoute>} />
       <Route path="/mesas" element={<RoleRoute roles={["owner","admin","cashier","waiter"]}><TablesPage /></RoleRoute>} />
       <Route path="/cocina" element={<RoleRoute roles={["owner","admin","kitchen"]}><KitchenPage /></RoleRoute>} />
       <Route path="/caja" element={<RoleRoute roles={["owner","admin","cashier"]}><CashPage /></RoleRoute>} />

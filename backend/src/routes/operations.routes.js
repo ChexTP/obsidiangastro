@@ -16,6 +16,10 @@ router.post("/products",roles(),c.postProduct);
 router.patch("/products/:id",roles(),c.patchProduct);
 router.delete("/products/:id",roles(),c.deleteProduct);
 router.put("/products/:id/options",roles(),c.putProductOptions);
+router.get("/templates",roles("cashier","waiter"),c.getTemplates);
+router.post("/templates",roles(),c.postTemplate);
+router.put("/templates/:id",roles(),c.putTemplate);
+router.delete("/templates/:id",roles(),c.deleteTemplate);
 
 // Menú diario: visible para operación, editable únicamente por administración.
 router.get("/daily-menu",roles("cashier","waiter","kitchen"),c.getDailyMenu);

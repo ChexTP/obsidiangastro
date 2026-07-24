@@ -4,6 +4,10 @@ export const createProduct=(data)=>apiRequest("/operations/products",{method:"PO
 export const updateProduct=(id,data)=>apiRequest(`/operations/products/${id}`,{method:"PATCH",body:JSON.stringify(data)});
 export const deleteProduct=(id)=>apiRequest(`/operations/products/${id}`,{method:"DELETE"});
 export const saveProductOptions=(id,groups)=>apiRequest(`/operations/products/${id}/options`,{method:"PUT",body:JSON.stringify({groups})});
+export const getTemplates=()=>apiRequest("/operations/templates");
+export const createTemplate=(data)=>apiRequest("/operations/templates",{method:"POST",body:JSON.stringify(data)});
+export const updateTemplate=(id,data)=>apiRequest(`/operations/templates/${id}`,{method:"PUT",body:JSON.stringify(data)});
+export const deleteTemplate=(id)=>apiRequest(`/operations/templates/${id}`,{method:"DELETE"});
 export const createCategory=(name)=>apiRequest("/operations/categories",{method:"POST",body:JSON.stringify({name})});
 export const updateCategory=(id,name)=>apiRequest(`/operations/categories/${id}`,{method:"PATCH",body:JSON.stringify({name})});
 export const deleteCategory=(id)=>apiRequest(`/operations/categories/${id}`,{method:"DELETE"});

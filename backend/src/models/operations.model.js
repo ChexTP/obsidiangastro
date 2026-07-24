@@ -23,6 +23,15 @@ export const replaceProductOptions = async (tenantId,productId,groups) => {
   }
   return findProduct(tenantId,productId);
 };
+export const listTemplates = (tenantId) => query(supabaseAdmin.from("pricing_templates").select("*,template_requirements(*,product_categories(id,name,is_active))").eq("tenant_id",tenantId).order("name"));
+export const findTemplate = async (tenantId,id) => {const{data,error}=await supabaseAdmin.from("pricing_templates").select("*,template_requirements(*,product_categories(id,name,is_active))").eq("tenant_id",tenantId).eq("id",id).maybeSingle();if(error)throw error;return data};
+export const saveTemplate = async (tenantId,id,values,requirements) => {
+  let template;if(id)template=await query(supabaseAdmin.from("pricing_templates").update(values).eq("tenant_id",tenantId).eq("id",id).select().single());else template=await query(supabaseAdmin.from("pricing_templates").insert({tenant_id:tenantId,...values}).select().single());
+  await query(supabaseAdmin.from("template_requirements").delete().eq("tenant_id",tenantId).eq("template_id",template.id));
+  if(requirements.length)await query(supabaseAdmin.from("template_requirements").insert(requirements.map((item,index)=>({tenant_id:tenantId,template_id:template.id,category_id:item.categoryId,quantity:item.quantity,sort_order:index}))));
+  return findTemplate(tenantId,template.id);
+};
+export const deactivateTemplate = (tenantId,id) => query(supabaseAdmin.from("pricing_templates").update({is_active:false}).eq("tenant_id",tenantId).eq("id",id).select().single());
 
 export const getDailyMenu = async (tenantId, serviceDate) => {
   const branch=await getDefaultBranch(tenantId);
@@ -67,6 +76,7 @@ export const createOrder = async (tenantId,userId,values,items=[]) => {
     if(error)throw error;if(!data)throw new Error(`No hay suficientes unidades de ${item.product_name}`);
   }
   await reserveOptionStocks(tenantId,items);
+  await reservePreparationStocks(tenantId,items);
   if(values.table_id) await updateTable(tenantId,values.table_id,{status:"occupied"});
   return (await listOrders(tenantId)).find(item=>item.id===order.id);
 };
@@ -95,9 +105,18 @@ const restoreOptionStocks=async(tenantId,items)=>{
     await query(supabaseAdmin.from("daily_menu_option_stocks").update({remaining_quantity:Math.min(Number(option.stock_quantity),Number(option.remaining_quantity)+Number(item.quantity))}).eq("tenant_id",tenantId).eq("id",selection.dailyStockId));
   }
 };
+const reservePreparationStocks=async(tenantId,items)=>{
+  const counts=new Map();for(const item of items||[])if(item.line_type==="preparation")for(const selection of item.selections||[]){if(!selection.dailyMenuItemId)continue;counts.set(selection.dailyMenuItemId,{name:selection.name,count:Number(counts.get(selection.dailyMenuItemId)?.count||0)+1})}
+  for(const[id,value]of counts){const{data:daily,error}=await supabaseAdmin.from("daily_menu_items").select("remaining_quantity").eq("tenant_id",tenantId).eq("id",id).single();if(error)throw error;if(daily.remaining_quantity===null)continue;const remaining=Number(daily.remaining_quantity)-value.count;if(remaining<0)throw new Error(`No hay suficientes unidades de ${value.name}`);const{data,error:updateError}=await supabaseAdmin.from("daily_menu_items").update({remaining_quantity:remaining,availability:remaining===0?"sold_out":"available"}).eq("tenant_id",tenantId).eq("id",id).eq("remaining_quantity",daily.remaining_quantity).select("id").maybeSingle();if(updateError)throw updateError;if(!data)throw new Error(`Las existencias de ${value.name} cambiaron; intenta nuevamente`)}
+};
+const restorePreparationStocks=async(tenantId,items)=>{
+  const counts=new Map();for(const item of items||[])if(item.line_type==="preparation")for(const selection of item.selections||[]){if(selection.dailyMenuItemId)counts.set(selection.dailyMenuItemId,Number(counts.get(selection.dailyMenuItemId)||0)+1)}
+  for(const[id,count]of counts){const{data:daily,error}=await supabaseAdmin.from("daily_menu_items").select("stock_quantity,remaining_quantity").eq("tenant_id",tenantId).eq("id",id).maybeSingle();if(error)throw error;if(!daily||daily.remaining_quantity===null)continue;const restored=Math.min(Number(daily.stock_quantity),Number(daily.remaining_quantity)+count);await query(supabaseAdmin.from("daily_menu_items").update({remaining_quantity:restored,availability:restored>0?"available":"sold_out"}).eq("tenant_id",tenantId).eq("id",id))}
+};
 export const editOrder = async ({tenantId,order,values,items}) => {
   await restoreControlledItems(tenantId,order.order_items);
   await restoreOptionStocks(tenantId,order.order_items);
+  await restorePreparationStocks(tenantId,order.order_items);
   await query(supabaseAdmin.from("order_items").delete().eq("tenant_id",tenantId).eq("order_id",order.id));
   if(items.length)await query(supabaseAdmin.from("order_items").insert(items.map(item=>{const{remaining_quantity,...orderItem}=item;return{tenant_id:tenantId,order_id:order.id,...orderItem}})));
   for(const item of items){
@@ -107,6 +126,7 @@ export const editOrder = async ({tenantId,order,values,items}) => {
     await query(supabaseAdmin.from("daily_menu_items").update({remaining_quantity:remaining,availability:remaining===0?"sold_out":"available"}).eq("tenant_id",tenantId).eq("id",item.daily_menu_item_id));
   }
   await reserveOptionStocks(tenantId,items);
+  await reservePreparationStocks(tenantId,items);
   if(order.table_id&&order.table_id!==values.table_id)await updateTable(tenantId,order.table_id,{status:"free"});
   if(values.table_id&&order.table_id!==values.table_id)await updateTable(tenantId,values.table_id,{status:"occupied"});
   const subtotal=items.reduce((sum,item)=>sum+Number(item.unit_price)*Number(item.quantity),0);
@@ -122,6 +142,7 @@ export const payOrder = async ({tenantId,order,userId,cashSessionId,payments}) =
 export const cancelOrder = async ({tenantId,order}) => {
   await restoreControlledItems(tenantId,order.order_items);
   await restoreOptionStocks(tenantId,order.order_items);
+  await restorePreparationStocks(tenantId,order.order_items);
   const cancelled=await updateOrder(tenantId,order.id,{status:"cancelled"});
   if(order.table_id)await updateTable(tenantId,order.table_id,{status:"free"});
   return cancelled;
