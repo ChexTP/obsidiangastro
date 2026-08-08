@@ -49,7 +49,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'Usa el correo y la contraseña que el administrador creó para ti.',
+                  'Usa el usuario y la contraseña que el administrador creó para ti.',
                   style: TextStyle(
                     fontSize: 17,
                     color: AppTheme.muted,
@@ -59,12 +59,11 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 30),
                 TextField(
                   controller: email,
-                  keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
                   autocorrect: false,
                   style: const TextStyle(fontSize: 18),
                   decoration: const InputDecoration(
-                    labelText: 'Correo del empleado',
+                    labelText: 'Usuario',
                     prefixIcon: Icon(Icons.person_outline, size: 26),
                   ),
                 ),

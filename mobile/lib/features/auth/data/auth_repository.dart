@@ -12,9 +12,9 @@ class AuthRepository {
   final SecureSessionStore store;
   final ApiClient api;
 
-  Future<StoredSession> login(String email, String password) async {
+  Future<StoredSession> login(String identifier, String password) async {
     final loginResponse = await _publicPost('/auth/login', {
-      'email': email.trim().toLowerCase(),
+      'identifier': identifier.trim().toLowerCase(),
       'password': password,
     });
     final token = loginResponse['session']?['accessToken'];
@@ -44,7 +44,7 @@ class AuthRepository {
       tenantId: membership['tenant_id'],
       role: membership['role'],
       restaurantName: tenant?['business_name'] ?? 'Mi restaurante',
-      userEmail: profile['user']?['email'] ?? email,
+      userEmail: identifier,
     );
     await store.write(session);
     try {

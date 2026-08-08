@@ -1,4 +1,4 @@
-import { createPublicSupabaseClient } from "../db.js";
+import { createPublicSupabaseClient, supabaseAdmin } from "../db.js";
 
 export const registerUser = async ({ email, password, displayName, redirectTo }) => {
   const client = createPublicSupabaseClient();
@@ -16,6 +16,14 @@ export const loginUser = async ({ email, password }) => {
   const { data, error } = await client.auth.signInWithPassword({ email, password });
   if (error) throw error;
   return data;
+};
+
+export const resolveLoginEmail = async (identifier) => {
+  const normalized = identifier.trim().toLowerCase();
+  if (normalized.includes("@")) return normalized;
+  const { data, error } = await supabaseAdmin.from("user_profiles").select("email").eq("username", normalized).maybeSingle();
+  if (error) throw error;
+  return data?.email || `${normalized}@invalid.obsidiangastro.app`;
 };
 
 export const refreshUserSession = async (refreshToken) => {

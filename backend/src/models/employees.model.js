@@ -13,7 +13,7 @@ export const listEmployeesByTenant = async (tenantId) => {
 
   const { data: profiles, error: profileError } = await supabaseAdmin
     .from("user_profiles")
-    .select("user_id, email, display_name")
+    .select("user_id, email, username, display_name")
     .in("user_id", userIds);
   if (profileError) throw profileError;
   const profileByUser = new Map((profiles || []).map((profile) => [profile.user_id, profile]));
@@ -50,14 +50,16 @@ export const inviteEmployee = async ({ accessToken, tenantId, email, displayName
   }
 };
 
-export const createEmployeeAccount = async ({accessToken,tenantId,email,password,displayName,role}) => {
-  const {data:created,error:createError}=await supabaseAdmin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{display_name:displayName}});
+export const createEmployeeAccount = async ({accessToken,tenantId,username,password,displayName,role}) => {
+  const email=`${username}@usuarios.obsidiangastro.app`;
+  const {data:created,error:createError}=await supabaseAdmin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{display_name:displayName,username}});
   if(createError)throw createError;const userId=created.user?.id;if(!userId)throw new Error("No fue posible crear el usuario");
   try{
     const supabaseUser=createUserSupabaseClient(accessToken);
     const{error}=await supabaseUser.rpc("invite_tenant_member",{p_tenant_id:tenantId,p_user_id:userId,p_role:role,p_display_name:displayName});if(error)throw error;
+    const{error:profileError}=await supabaseAdmin.from("user_profiles").update({username}).eq("user_id",userId);if(profileError)throw profileError;
     const{error:activeError}=await supabaseAdmin.from("tenant_memberships").update({status:"active"}).eq("tenant_id",tenantId).eq("user_id",userId);if(activeError)throw activeError;
-    return{userId,email,role,status:"active"};
+    return{userId,username,role,status:"active"};
   }catch(error){await supabaseAdmin.auth.admin.deleteUser(userId);throw error}
 };
 

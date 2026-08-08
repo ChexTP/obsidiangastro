@@ -24,8 +24,14 @@ export const postSession = async (req, res) => {
     const session = await openSession({ accessToken: req.accessToken, tenantId: req.tenantId, sessionData: req.body });
     res.status(201).json({ message: "Sesion abierta correctamente", data: session });
   } catch (error) {
-    const status = error.message?.toLowerCase().includes("limit") ? 409 : 400;
-    res.status(status).json({ message: "No fue posible abrir la sesion", error: error.message });
+    const detail = error.message?.toLowerCase() || "";
+    if (detail.includes("subscription is not active")) {
+      return res.status(403).json({ message: "La suscripción o el periodo de prueba del restaurante está vencido" });
+    }
+    if (detail.includes("concurrent session limit reached")) {
+      return res.status(409).json({ message: "Ya están en uso las conexiones móviles permitidas por el plan" });
+    }
+    res.status(400).json({ message: "No fue posible registrar este dispositivo", error: error.message });
   }
 };
 

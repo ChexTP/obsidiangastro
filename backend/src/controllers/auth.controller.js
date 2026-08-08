@@ -1,7 +1,7 @@
 import { listMembershipsByUser } from "../models/accounts.model.js";
 import { PUBLIC_WEB_URL } from "../config.js";
 import { SAAS_ADMIN_EMAILS } from "../config.js";
-import { loginUser, refreshUserSession, registerUser, requestPasswordReset } from "../models/auth.model.js";
+import { loginUser, refreshUserSession, registerUser, requestPasswordReset, resolveLoginEmail } from "../models/auth.model.js";
 
 const validEmail = (email) => typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const sessionResponse = (data) => ({
@@ -38,9 +38,10 @@ export const postRegister = async (req, res) => {
 
 export const postLogin = async (req, res) => {
   try {
-    const email = req.body.email?.trim().toLowerCase();
+    const identifier = (req.body.identifier || req.body.email)?.trim().toLowerCase();
     const password = req.body.password;
-    if (!validEmail(email) || !password) return res.status(400).json({ message: "Correo y contraseña son obligatorios" });
+    if (!identifier || !password) return res.status(400).json({ message: "Usuario y contraseña son obligatorios" });
+    const email = await resolveLoginEmail(identifier);
     const data = await loginUser({ email, password });
     res.json({ message: "Inicio de sesion correcto", ...sessionResponse(data) });
   } catch (error) {
