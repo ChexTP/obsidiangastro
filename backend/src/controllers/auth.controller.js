@@ -1,7 +1,7 @@
 import { listMembershipsByUser } from "../models/accounts.model.js";
 import { PUBLIC_WEB_URL } from "../config.js";
 import { SAAS_ADMIN_EMAILS } from "../config.js";
-import { loginUser, registerUser, requestPasswordReset } from "../models/auth.model.js";
+import { loginUser, refreshUserSession, registerUser, requestPasswordReset } from "../models/auth.model.js";
 
 const validEmail = (email) => typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const sessionResponse = (data) => ({
@@ -45,6 +45,17 @@ export const postLogin = async (req, res) => {
     res.json({ message: "Inicio de sesion correcto", ...sessionResponse(data) });
   } catch (error) {
     res.status(401).json({ message: "Credenciales invalidas o cuenta sin confirmar", error: error.message });
+  }
+};
+
+export const postRefresh = async (req, res) => {
+  try {
+    const refreshToken = req.body.refreshToken;
+    if (typeof refreshToken !== "string" || refreshToken.length < 20) return res.status(400).json({ message: "Token de renovación obligatorio" });
+    const data = await refreshUserSession(refreshToken);
+    res.json({ message: "Sesión renovada correctamente", ...sessionResponse(data) });
+  } catch (error) {
+    res.status(401).json({ message: "La sesión venció. Inicia sesión nuevamente", error: error.message });
   }
 };
 

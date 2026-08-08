@@ -18,6 +18,13 @@ export const loginUser = async ({ email, password }) => {
   return data;
 };
 
+export const refreshUserSession = async (refreshToken) => {
+  const client = createPublicSupabaseClient();
+  const { data, error } = await client.auth.refreshSession({ refresh_token: refreshToken });
+  if (error) throw error;
+  return data;
+};
+
 export const requestPasswordReset = async ({ email, redirectTo }) => {
   const client = createPublicSupabaseClient();
   const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
