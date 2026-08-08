@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getEmployees,
   patchEmployee,
+  patchEmployeePassword,
   postAcceptInvitation,
   postInvitation,
   postEmployee,
@@ -16,5 +17,6 @@ router.get("/", requireAuth, requireTenant, requireRoles("owner", "admin"), getE
 router.post("/", requireAuth, requireTenant, requireRoles("owner", "admin"), postEmployee);
 router.post("/invitations", requireAuth, requireTenant, requireRoles("owner", "admin"), postInvitation);
 router.patch("/:id", requireAuth, requireTenant, requireRoles("owner", "admin"), patchEmployee);
+router.patch("/:id/password", requireAuth, requireTenant, requireRoles("owner", "admin"), patchEmployeePassword);
 
 export default router;

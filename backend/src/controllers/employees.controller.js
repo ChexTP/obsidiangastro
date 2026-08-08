@@ -7,6 +7,7 @@ import {
   createEmployeeAccount,
   listEmployeesByTenant,
   updateMembership,
+  updateEmployeePassword,
 } from "../models/employees.model.js";
 
 const roles = ["owner", "admin", "cashier", "waiter", "kitchen", "auditor"];
@@ -78,6 +79,24 @@ export const patchEmployee = async (req, res) => {
     res.json({ message: "Empleado actualizado correctamente", data: employee });
   } catch (error) {
     res.status(500).json({ message: "Error al actualizar empleado", error: error.message });
+  }
+};
+
+export const patchEmployeePassword = async (req, res) => {
+  try {
+    const password = req.body.password;
+    if (typeof password !== "string" || password.length < 8) {
+      return res.status(400).json({ message: "La contraseña debe tener al menos 8 caracteres" });
+    }
+    const target = await findMembershipById({ tenantId: req.tenantId, membershipId: req.params.id });
+    if (!target) return res.status(404).json({ message: "Empleado no encontrado" });
+    if (req.membership.role === "admin" && target.role === "owner") {
+      return res.status(403).json({ message: "Un administrador no puede cambiar la contraseña de un propietario" });
+    }
+    await updateEmployeePassword({ userId: target.user_id, password });
+    res.json({ message: "Contraseña actualizada correctamente" });
+  } catch (error) {
+    res.status(400).json({ message: "No fue posible actualizar la contraseña", error: error.message });
   }
 };
 

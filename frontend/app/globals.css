@@ -193,8 +193,9 @@ h1 { margin-top: 8px; font-size: clamp(25px, 3vw, 34px); letter-spacing: -1.1px;
 
 .daily-selection-toolbar{display:grid;gap:11px;padding:15px 23px;border-bottom:1px solid var(--line);background:#fbfcfb}.daily-category-tabs{max-width:100%;overflow-x:auto}.daily-category-tabs button{flex:0 0 auto;white-space:nowrap}.daily-bulk-actions{display:flex;align-items:center;gap:8px}.daily-bulk-actions .search-input{margin-right:auto}.daily-bulk-actions button{min-height:39px}.daily-product-list section[hidden],.daily-product-list article[hidden]{display:none!important}@media(max-width:700px){.daily-bulk-actions{align-items:stretch;flex-direction:column}.daily-bulk-actions .search-input{margin:0}.daily-selection-toolbar{padding:14px 17px}}
 
-/* Escala de uso para terminales POS táctiles y pantallas medianas cuadradas. */
-@media (pointer:coarse) and (min-width:781px), (min-width:781px) and (max-width:1100px) and (min-height:700px) {
+/* Escala operativa para escritorios y terminales POS. No depende de que Windows
+   identifique correctamente la pantalla táctil. */
+@media (min-width:781px) {
   .app-shell{grid-template-columns:285px minmax(0,1fr)}
   .sidebar{padding:24px 16px 16px}.brand-row{padding-bottom:19px}.brand-row strong{font-size:22px}.brand-row span{font-size:12px}.brand-mark{width:44px;height:44px;font-size:20px}
   .eyebrow{font-size:12px}.restaurant-switcher{padding-top:12px;padding-bottom:15px}.restaurant-switcher button{min-height:48px}.restaurant-switcher button strong,.profile-button strong{font-size:14px}.restaurant-switcher button small,.profile-button small{font-size:12px}.restaurant-avatar,.profile-avatar{width:42px;height:42px;font-size:12px}

@@ -99,6 +99,11 @@ export const updateMembership = async ({ tenantId, membershipId, role, status })
   return data;
 };
 
+export const updateEmployeePassword = async ({ userId, password }) => {
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
+  if (error) throw error;
+};
+
 export const acceptInvitation = async ({ accessToken, tenantId }) => {
   const supabaseUser = createUserSupabaseClient(accessToken);
   const { data, error } = await supabaseUser.rpc("accept_tenant_invitation", {

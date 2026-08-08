@@ -35,4 +35,5 @@ export const getEmployees=()=>apiRequest("/employees");
 export const createEmployee=(data)=>apiRequest("/employees",{method:"POST",body:JSON.stringify(data)});
 export const inviteEmployee=(data)=>apiRequest("/employees/invitations",{method:"POST",body:JSON.stringify(data)});
 export const updateEmployee=(id,data)=>apiRequest(`/employees/${id}`,{method:"PATCH",body:JSON.stringify(data)});
+export const updateEmployeePassword=(id,password)=>apiRequest(`/employees/${id}/password`,{method:"PATCH",body:JSON.stringify({password})});
 export const getReportSummary=(period="day",date="")=>apiRequest(`/operations/reports/summary?period=${encodeURIComponent(period)}${date?`&date=${encodeURIComponent(date)}`:""}`);

@@ -4,13 +4,19 @@ Aplicación Android para meseros. Las cuentas se crean desde el panel web de Adm
 
 ## Ejecutar
 
-Para usar el backend local desde el emulador Android:
+El APK se conecta por defecto al backend de produccion:
+
+```text
+https://obsidiangastro.onrender.com/api
+```
+
+Para usar el backend local desde el emulador Android durante desarrollo:
 
 ```bash
 flutter run
 ```
 
-Para conectarse al backend desplegado:
+También se puede sobrescribir la URL para probar otro despliegue:
 
 ```bash
 flutter run --dart-define=API_BASE_URL=https://TU-BACKEND.onrender.com/api
