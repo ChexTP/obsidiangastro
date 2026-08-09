@@ -10,6 +10,7 @@ import subscriptionsRoutes from "./routes/subscriptions.routes.js";
 import employeesRoutes from "./routes/employees.routes.js";
 import sessionsRoutes from "./routes/sessions.routes.js";
 import operationsRoutes from "./routes/operations.routes.js";
+import { notifyOperationsAfterMutation } from "./realtime.js";
 
 const app = express();
 app.use(morgan("dev"));
@@ -23,7 +24,7 @@ app.use("/api/accounts", accountsRoutes);
 app.use("/api/subscriptions", subscriptionsRoutes);
 app.use("/api/employees", employeesRoutes);
 app.use("/api/sessions", sessionsRoutes);
-app.use("/api/operations", operationsRoutes);
+app.use("/api/operations", notifyOperationsAfterMutation, operationsRoutes);
 
 app.use((req, res) => res.status(404).json({ message: "Ruta no encontrada" }));
 export default app;

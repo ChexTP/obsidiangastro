@@ -1,7 +1,11 @@
 import app from "./app.js";
 import { HOST, PORT } from "./config.js";
+import { createServer } from "node:http";
+import { initRealtime } from "./realtime.js";
 
-const server = app.listen(PORT, HOST, () => {
+const server = createServer(app);
+initRealtime(server);
+server.listen(PORT, HOST, () => {
   console.log(`Servidor Restaurant SaaS escuchando en http://${HOST}:${PORT}`);
 });
 

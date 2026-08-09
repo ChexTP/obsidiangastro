@@ -7,6 +7,14 @@ class OperationsRepository {
       (await api.request('/operations/tables') as List? ?? []);
   Future<List<dynamic>> orders() async =>
       (await api.request('/operations/orders') as List? ?? []);
+  Future<List<dynamic>> templates() async =>
+      (await api.request('/operations/templates') as List? ?? []);
+  Future<dynamic> createOrder(Map<String, dynamic> data) =>
+      api.request('/operations/orders', method: 'POST', body: data);
+  Future<dynamic> updateOrder(String id, Map<String, dynamic> data) =>
+      api.request('/operations/orders/$id', method: 'PUT', body: data);
+  Future<dynamic> cancelOrder(String id) =>
+      api.request('/operations/orders/$id/cancel', method: 'POST', body: {});
   Future<Map<String, dynamic>> dailyMenu() async {
     final now = DateTime.now();
     final date =

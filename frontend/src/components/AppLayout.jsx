@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getOrders } from "../controllers/operationsController";
 import ErrorBoundary from "./ErrorBoundary";
+import { connectOperationsRealtime } from "../utils/realtime";
 
 const navigation = [
   ["Inicio", "/dashboard", "IN",["owner","admin"]], ["Pedidos", "/pedidos", "PD",["owner","admin","cashier","waiter"]], ["Menú", "/menu", "MN",["owner","admin"]], ["Plantillas", "/plantillas", "PL",["owner","admin"]],
@@ -22,13 +23,15 @@ export default function AppLayout() {
   const canManageSubscription = ["owner", "admin"].includes(membership?.role);
   const restaurant = isPlatformAdmin ? "Plataforma Obsidian" : membership?.tenants?.business_name || "Mi restaurante";
   const closeSession = () => { logout(); navigate("/login"); };
+  useEffect(() => isPlatformAdmin ? undefined : connectOperationsRealtime(), [isPlatformAdmin]);
   useEffect(() => {
     let active = true;
     const refresh = () => { if (isPlatformAdmin) return; getOrders().then((orders) => { if (active) setPendingOrders(orders.filter((order) => !["paid", "cancelled", "refunded"].includes(order.status)).length); }).catch(() => { if (active) setPendingOrders(null); }); };
     const receiveCount = (event) => { if (active) setPendingOrders(event.detail); };
     refresh();
     window.addEventListener("orders:count", receiveCount);
-    return () => { active = false; window.removeEventListener("orders:count", receiveCount); };
+    window.addEventListener("operations:changed", refresh);
+    return () => { active = false; window.removeEventListener("orders:count", receiveCount); window.removeEventListener("operations:changed", refresh); };
   }, [location.pathname, isPlatformAdmin]);
   return <main className="app-shell">
     <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>

@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../app_controller.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/realtime/realtime_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../operations/data/operations_repository.dart';
+import '../../orders/presentation/order_builder_page.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, required this.controller});
@@ -14,11 +18,26 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int index = 0;
+  int refreshVersion = 0;
   late final OperationsRepository repository;
+  late final RealtimeService realtime;
   @override
   void initState() {
     super.initState();
     repository = OperationsRepository(ApiClient(widget.controller.store));
+    realtime = RealtimeService(
+      store: widget.controller.store,
+      onOperationsChanged: () {
+        if (mounted) setState(() => refreshVersion++);
+      },
+    );
+    realtime.start();
+  }
+
+  @override
+  void dispose() {
+    realtime.stop();
+    super.dispose();
   }
 
   @override
@@ -28,9 +47,13 @@ class _HomeShellState extends State<HomeShell> {
         controller: widget.controller,
         onNavigate: (value) => setState(() => index = value),
       ),
-      _Tables(repository),
+      _Tables(
+        repository,
+        key: ValueKey('tables-$refreshVersion'),
+        onOrderSaved: _orderSaved,
+      ),
       _DailyMenu(repository),
-      _Orders(repository),
+      _Orders(repository, key: ValueKey('orders-$refreshVersion')),
     ];
     return Scaffold(
       appBar: AppBar(
@@ -81,6 +104,11 @@ class _HomeShellState extends State<HomeShell> {
       ),
     );
   }
+
+  void _orderSaved() => setState(() {
+    refreshVersion++;
+    index = 3;
+  });
 }
 
 class _Overview extends StatelessWidget {
@@ -180,64 +208,122 @@ class _BigAction extends StatelessWidget {
 }
 
 class _Tables extends StatelessWidget {
-  const _Tables(this.repository);
+  const _Tables(this.repository, {super.key, required this.onOrderSaved});
   final OperationsRepository repository;
-  @override
-  Widget build(BuildContext context) => _AsyncView(
-    loader: repository.tables,
-    builder: (data, refresh) => RefreshIndicator(
-      onRefresh: refresh,
-      child: GridView.builder(
-        padding: const EdgeInsets.all(18),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.2,
+  final VoidCallback onOrderSaved;
+
+  Future<void> _open(BuildContext context, Map<String, dynamic>? table) async {
+    Map<String, dynamic>? existing;
+    if (table?['status'] == 'occupied') {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+      try {
+        final orders = await repository.orders();
+        existing = orders.cast<Map<String, dynamic>?>().firstWhere(
+          (order) =>
+              order?['table_id'] == table?['id'] &&
+              !['paid', 'cancelled', 'refunded'].contains(order?['status']),
+          orElse: () => null,
+        );
+      } finally {
+        if (context.mounted) Navigator.pop(context);
+      }
+      if (existing == null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se encontró el pedido activo de esta mesa'),
+          ),
+        );
+        return;
+      }
+    }
+    if (!context.mounted) return;
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OrderBuilderPage(
+          repository: repository,
+          initialTable: table,
+          existingOrder: existing,
         ),
-        itemCount: data.length,
-        itemBuilder: (_, i) {
-          final table = data[i], busy = table['status'] == 'occupied';
-          return Card(
-            color: busy ? const Color(0xFFFFF2EE) : Colors.white,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: () {},
-              child: Padding(
-                padding: const EdgeInsets.all(17),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.table_restaurant,
-                      size: 31,
-                      color: busy ? Colors.deepOrange : AppTheme.forest,
-                    ),
-                    const Spacer(),
-                    Text(
-                      table['name'] ?? 'Mesa',
-                      style: const TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      busy ? 'Ocupada' : 'Libre',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: busy ? Colors.deepOrange : AppTheme.forest,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
       ),
-    ),
+    );
+    if (saved == true) onOrderSaved();
+  }
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    children: [
+      _AsyncView(
+        refreshEvery: const Duration(seconds: 15),
+        loader: repository.tables,
+        builder: (data, refresh) => RefreshIndicator(
+          onRefresh: refresh,
+          child: GridView.builder(
+            padding: const EdgeInsets.all(18),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.2,
+            ),
+            itemCount: data.length,
+            itemBuilder: (_, i) {
+              final table = data[i], busy = table['status'] == 'occupied';
+              return Card(
+                color: busy ? const Color(0xFFFFF2EE) : Colors.white,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: () => _open(context, Map<String, dynamic>.from(table)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(17),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.table_restaurant,
+                          size: 31,
+                          color: busy ? Colors.deepOrange : AppTheme.forest,
+                        ),
+                        const Spacer(),
+                        Text(
+                          table['name'] ?? 'Mesa',
+                          style: const TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          busy ? 'Ocupada' : 'Libre',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: busy ? Colors.deepOrange : AppTheme.forest,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+      Positioned(
+        right: 18,
+        bottom: 18,
+        child: FloatingActionButton.extended(
+          onPressed: () => _open(context, null),
+          icon: const Icon(Icons.add),
+          label: const Text('Nuevo pedido'),
+        ),
+      ),
+    ],
   );
 }
 
@@ -371,10 +457,11 @@ class _DailyMenuState extends State<_DailyMenu> {
 }
 
 class _Orders extends StatelessWidget {
-  const _Orders(this.repository);
+  const _Orders(this.repository, {super.key});
   final OperationsRepository repository;
   @override
   Widget build(BuildContext context) => _AsyncView(
+    refreshEvery: const Duration(seconds: 15),
     loader: repository.orders,
     builder: (data, refresh) {
       final active = data
@@ -393,6 +480,60 @@ class _Orders extends StatelessWidget {
             final order = active[i];
             return Card(
               child: ListTile(
+                onTap:
+                    ['paid', 'cancelled', 'refunded'].contains(order['status'])
+                    ? null
+                    : () async {
+                        final saved = await Navigator.push<bool>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => OrderBuilderPage(
+                              repository: repository,
+                              existingOrder: Map<String, dynamic>.from(order),
+                            ),
+                          ),
+                        );
+                        if (saved == true) await refresh();
+                      },
+                onLongPress:
+                    ['paid', 'cancelled', 'refunded'].contains(order['status'])
+                    ? null
+                    : () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (dialogContext) => AlertDialog(
+                            title: Text(
+                              'Cancelar pedido #${order['order_number']}',
+                            ),
+                            content: const Text(
+                              'Se liberará la mesa y se devolverán las existencias.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.pop(dialogContext, false),
+                                child: const Text('Volver'),
+                              ),
+                              FilledButton(
+                                onPressed: () =>
+                                    Navigator.pop(dialogContext, true),
+                                child: const Text('Cancelar pedido'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirmed == true) {
+                          try {
+                            await repository.cancelOrder('${order['id']}');
+                            await refresh();
+                          } catch (e) {
+                            if (context.mounted)
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(e.toString())),
+                              );
+                          }
+                        }
+                      },
                 contentPadding: const EdgeInsets.all(17),
                 title: Text(
                   'Pedido #${order['order_number']}',
@@ -433,9 +574,14 @@ class _Orders extends StatelessWidget {
 }
 
 class _AsyncView extends StatefulWidget {
-  const _AsyncView({required this.loader, required this.builder});
+  const _AsyncView({
+    required this.loader,
+    required this.builder,
+    this.refreshEvery,
+  });
   final Future<dynamic> Function() loader;
   final Widget Function(dynamic, Future<void> Function()) builder;
+  final Duration? refreshEvery;
   @override
   State<_AsyncView> createState() => _AsyncViewState();
 }
@@ -444,10 +590,19 @@ class _AsyncViewState extends State<_AsyncView> {
   dynamic data;
   String? error;
   bool loading = true;
+  Timer? timer;
   @override
   void initState() {
     super.initState();
     load();
+    if (widget.refreshEvery != null)
+      timer = Timer.periodic(widget.refreshEvery!, (_) => load());
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    super.dispose();
   }
 
   Future<void> load() async {

@@ -28,7 +28,7 @@ export default function CashPage() {
   const applyProductSales = (data) => { const products=data.products||[];setProductSales(products);setSelectedProductId(current=>products.some(product=>product.id===current)?current:(products[0]?.id||"")); };
   const loadProductSales = () => { setProductSalesLoading(true); return getCashProductSales().then(applyProductSales).catch((failure)=>setError(failure.message)).finally(()=>setProductSalesLoading(false)); };
   const load = () => { setLoading(true); return Promise.all([getCash(), getCashHistory(), getCashProductSales()]).then(([data, historyData, salesData]) => { setSession(data.session); setHistory(historyData.sessions || []); applyProductSales(salesData); }).catch((failure) => setError(failure.message)).finally(() => setLoading(false)); };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { const refresh=()=>load();load();window.addEventListener("operations:changed",refresh);return()=>window.removeEventListener("operations:changed",refresh); }, []);
 
   const open = async (event) => { event.preventDefault(); const form = new FormData(event.currentTarget); try { await openCash({ openingAmount: Number(form.get("base")), notes: form.get("note") }); setOpenModal(false); await load(); } catch (failure) { setError(failure.message); } };
   const registerMovement = async (event) => { event.preventDefault(); const form = new FormData(event.currentTarget); try { await addCashMovement(session.id, { kind: movementType, amount: Number(form.get("amount")), concept: form.get("concept") }); setMovementType(null); await load(); } catch (failure) { setError(failure.message); } };
