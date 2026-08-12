@@ -19,6 +19,12 @@ const recognizePreparation=(preparation,products,templates)=>{
  let total=template?Number(template.base_price):0;ingredients.forEach((product,index)=>{total+=template&&included.has(index)?Number(product.template_surcharge||0):Number(product.price)});
  return{template,ingredients,included,total};
 };
+const composeSelections=(preparations,individuals,products,templates)=>{
+ const pool=[...preparations.flatMap(item=>item.ingredientIds),...Object.entries(individuals).flatMap(([id,quantity])=>Array(Number(quantity)).fill(id))].map(id=>products.find(product=>product.id===id)).filter(Boolean),groups=[];
+ const sorted=templates.filter(template=>template.is_active).sort((a,b)=>b.template_requirements.reduce((sum,item)=>sum+Number(item.quantity),0)-a.template_requirements.reduce((sum,item)=>sum+Number(item.quantity),0));
+ while(true){const template=sorted.find(candidate=>(candidate.template_requirements||[]).every(requirement=>pool.filter(product=>product.category_id===requirement.category_id).length>=Number(requirement.quantity)));if(!template)break;const ingredientIds=[];for(const requirement of [...template.template_requirements].sort((a,b)=>a.sort_order-b.sort_order)){let remaining=Number(requirement.quantity);for(let index=pool.length-1;index>=0&&remaining>0;index--){if(pool[index].category_id===requirement.category_id){ingredientIds.push(pool[index].id);pool.splice(index,1);remaining--}}}groups.push(recognizePreparation({ingredientIds},products,templates))}
+ const leftovers={};pool.forEach(product=>leftovers[product.id]=Number(leftovers[product.id]||0)+1);return{groups,leftovers};
+};
 
 export default function OrdersPage(){
  const[open,setOpen]=useState(false),[step,setStep]=useState(1),[orders,setOrders]=useState([]),[products,setProducts]=useState([]),[templates,setTemplates]=useState([]),[tables,setTables]=useState([]),[editingOrder,setEditingOrder]=useState(null),[filter,setFilter]=useState("all");
@@ -33,7 +39,8 @@ export default function OrdersPage(){
  const categories=useMemo(()=>{const map=new Map();products.forEach(product=>{const id=product.category_id||"other",name=product.product_categories?.name||"Otros";if(!map.has(id))map.set(id,{id,name,count:0});map.get(id).count++});return[...map.values()]},[products]);
  const visibleProducts=products.filter(product=>(activeCategory==="all"||product.category_id===activeCategory||(activeCategory==="other"&&!product.category_id))&&product.name.toLowerCase().includes(search.toLowerCase()));
  const recognized=useMemo(()=>preparations.map(preparation=>({...preparation,...recognizePreparation(preparation,products,templates)})),[preparations,products,templates]);
- const foodTotal=recognized.reduce((sum,item)=>sum+item.total,0)+Object.entries(individuals).reduce((sum,[id,quantity])=>sum+Number(products.find(product=>product.id===id)?.price||0)*Number(quantity),0);
+ const composition=useMemo(()=>composeSelections(preparations,individuals,products,templates),[preparations,individuals,products,templates]);
+ const foodTotal=composition.groups.reduce((sum,item)=>sum+item.total,0)+Object.entries(composition.leftovers).reduce((sum,[id,quantity])=>sum+Number(products.find(product=>product.id===id)?.price||0)*Number(quantity),0);
  const total=foodTotal+(serviceType==="table"?0:Number(serviceFee||0));
  const usage=useMemo(()=>{const result={...individuals};preparations.flatMap(item=>item.ingredientIds).forEach(id=>{result[id]=Number(result[id]||0)+1});return result},[preparations,individuals]);
  const capacity=id=>{const product=products.find(item=>item.id===id);return product?.remainingQuantity===null?null:Number(product?.remainingQuantity||0)+Number(previousUsage[id]||0)};

@@ -198,16 +198,73 @@ class _OrderBuilderPageState extends State<OrderBuilderPage> {
   }
 
   double get total {
-    var value = preparations
-        .where((p) => p.isNotEmpty)
-        .fold<double>(0, (sum, p) => sum + (recognize(p)['total'] as double));
-    individuals.forEach((id, quantity) {
+    final pool = <Map<String, dynamic>>[];
+    final ids = <String>[
+      ...preparations.expand((item) => item),
+      ...individuals.entries.expand(
+        (entry) => List.filled(entry.value, entry.key),
+      ),
+    ];
+    for (final id in ids) {
       final product = products.cast<Map<String, dynamic>?>().firstWhere(
-        (p) => p?['id'] == id,
+        (item) => item?['id'] == id,
         orElse: () => null,
       );
-      value += (double.tryParse('${product?['price']}') ?? 0) * quantity;
-    });
+      if (product != null) pool.add(product);
+    }
+    final sortedTemplates =
+        templates.where((item) => item['is_active'] == true).toList()..sort(
+          (a, b) => (b['template_requirements'] as List)
+              .fold<int>(
+                0,
+                (sum, item) => sum + (int.tryParse('${item['quantity']}') ?? 0),
+              )
+              .compareTo(
+                (a['template_requirements'] as List).fold<int>(
+                  0,
+                  (sum, item) =>
+                      sum + (int.tryParse('${item['quantity']}') ?? 0),
+                ),
+              ),
+        );
+    var value = 0.0;
+    while (true) {
+      final template = sortedTemplates.cast<Map<String, dynamic>?>().firstWhere(
+        (candidate) =>
+            (candidate?['template_requirements'] as List? ?? []).every(
+              (requirement) =>
+                  pool
+                      .where(
+                        (product) =>
+                            product['category_id'] ==
+                            requirement['category_id'],
+                      )
+                      .length >=
+                  (int.tryParse('${requirement['quantity']}') ?? 0),
+            ),
+        orElse: () => null,
+      );
+      if (template == null) break;
+      final group = <String>[];
+      for (final requirement in template['template_requirements'] as List) {
+        var remaining = int.tryParse('${requirement['quantity']}') ?? 0;
+        for (
+          var index = pool.length - 1;
+          index >= 0 && remaining > 0;
+          index--
+        ) {
+          if (pool[index]['category_id'] == requirement['category_id']) {
+            group.add('${pool[index]['id']}');
+            pool.removeAt(index);
+            remaining--;
+          }
+        }
+      }
+      value += recognize(group)['total'] as double;
+    }
+    for (final product in pool) {
+      value += double.tryParse('${product['price']}') ?? 0;
+    }
     if (serviceType != 'table') value += double.tryParse(fee.text) ?? 0;
     return value;
   }
