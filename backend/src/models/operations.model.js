@@ -40,6 +40,21 @@ export const getDailyMenu = async (tenantId, serviceDate) => {
     .eq("tenant_id",tenantId).eq("branch_id",branch.id).eq("service_date",serviceDate).maybeSingle();
   if(error)throw error;return data;
 };
+export const listInventory = (tenantId) => query(supabaseAdmin.from("product_inventory").select("*").eq("tenant_id",tenantId));
+export const setInventory = (tenantId,productId,quantity) => query(supabaseAdmin.from("product_inventory").upsert({tenant_id:tenantId,product_id:productId,quantity},{onConflict:"tenant_id,product_id"}).select().single());
+export const changeInventory = async (tenantId,productId,delta) => {
+  const {data,error}=await supabaseAdmin.from("product_inventory").select("*").eq("tenant_id",tenantId).eq("product_id",productId).maybeSingle();if(error)throw error;
+  if(!data||data.quantity===null)return data;
+  const quantity=Number(data.quantity)+Number(delta);if(quantity<0)throw new Error("No hay existencias suficientes");
+  return query(supabaseAdmin.from("product_inventory").update({quantity}).eq("id",data.id).select().single());
+};
+export const syncTodayDailyStock = async (tenantId,productId,quantity,mode="set") => {
+  const today=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+  const menu=await getDailyMenu(tenantId,today),item=menu?.daily_menu_items?.find(entry=>entry.product_id===productId);if(!item)return;
+  const remaining=quantity===null?null:mode==="add"?Number(item.remaining_quantity||0)+Number(quantity):Number(quantity);
+  const stock=remaining===null?null:mode==="add"?Number(item.stock_quantity||0)+Number(quantity):Number(quantity);
+  await query(supabaseAdmin.from("daily_menu_items").update({stock_quantity:stock,remaining_quantity:remaining,availability:remaining===0?"sold_out":"available"}).eq("tenant_id",tenantId).eq("id",item.id));
+};
 export const saveDailyMenu = async (tenantId,userId,serviceDate,items) => {
   const branch=await getDefaultBranch(tenantId);
   const menu=await query(supabaseAdmin.from("daily_menus").upsert({tenant_id:tenantId,branch_id:branch.id,service_date:serviceDate,status:"published",created_by:userId},{onConflict:"branch_id,service_date"}).select().single());
@@ -61,6 +76,7 @@ export const updateTable = (tenantId,id,values) => query(supabaseAdmin.from("din
 export const findTable = async (tenantId,id) => { const {data,error}=await supabaseAdmin.from("dining_tables").select("*").eq("tenant_id",tenantId).eq("id",id).maybeSingle();if(error)throw error;return data; };
 
 export const listOrders = (tenantId) => query(supabaseAdmin.from("orders").select("*,dining_tables(name),order_items(*),payments(method,amount),refunds(method,amount,reason,created_at)").eq("tenant_id",tenantId).order("created_at",{ascending:false}));
+export const listOrdersDetailedInRange = (tenantId,from,to) => query(supabaseAdmin.from("orders").select("*,dining_tables(name),order_items(*),payments(method,amount),refunds(method,amount,reason,created_at)").eq("tenant_id",tenantId).gte("created_at",from).lt("created_at",to).order("created_at",{ascending:false}));
 export const findOrder = async (tenantId,id) => { const {data,error}=await supabaseAdmin.from("orders").select("*,dining_tables(name),order_items(*),payments(method,amount),refunds(method,amount,reason,created_at)").eq("tenant_id",tenantId).eq("id",id).maybeSingle();if(error)throw error;return data; };
 export const listOrdersInRange = (tenantId,from,to) => query(supabaseAdmin.from("orders").select("*,dining_tables(name),order_items(product_name,quantity,unit_price),payments(method,amount),refunds(method,amount,reason,created_at)").eq("tenant_id",tenantId).gte("created_at",from).lt("created_at",to).order("created_at",{ascending:false}));
 export const createOrder = async (tenantId,userId,values,items=[]) => {
@@ -79,6 +95,7 @@ export const createOrder = async (tenantId,userId,values,items=[]) => {
     const remaining=item.remaining_quantity-Number(item.quantity);
     const {data,error}=await supabaseAdmin.from("daily_menu_items").update({remaining_quantity:remaining,availability:remaining===0?"sold_out":"available"}).eq("tenant_id",tenantId).eq("id",item.daily_menu_item_id).gte("remaining_quantity",Number(item.quantity)).select("id").maybeSingle();
     if(error)throw error;if(!data)throw new Error(`No hay suficientes unidades de ${item.product_name}`);
+    if(item.product_id)await changeInventory(tenantId,item.product_id,-Number(item.quantity));
   }
   await reserveOptionStocks(tenantId,items);
   await reservePreparationStocks(tenantId,items);
@@ -93,6 +110,7 @@ const restoreControlledItems = async (tenantId,items) => {
     if(!daily||daily.remaining_quantity===null)continue;
     const restored=Math.min(Number(daily.stock_quantity),Number(daily.remaining_quantity)+Number(item.quantity));
     await query(supabaseAdmin.from("daily_menu_items").update({remaining_quantity:restored,availability:restored>0?"available":"sold_out"}).eq("tenant_id",tenantId).eq("id",item.daily_menu_item_id));
+    if(item.product_id)await changeInventory(tenantId,item.product_id,Number(item.quantity));
   }
 };
 const reserveOptionStocks=async(tenantId,items)=>{
@@ -101,6 +119,7 @@ const reserveOptionStocks=async(tenantId,items)=>{
     const amount=Number(item.quantity);const {data:option,error:readError}=await supabaseAdmin.from("daily_menu_option_stocks").select("remaining_quantity").eq("tenant_id",tenantId).eq("id",selection.dailyStockId).single();if(readError)throw readError;
     const remaining=Number(option.remaining_quantity)-amount;if(remaining<0)throw new Error(`No hay suficientes unidades de ${selection.name}`);
     const {data,error}=await supabaseAdmin.from("daily_menu_option_stocks").update({remaining_quantity:remaining}).eq("tenant_id",tenantId).eq("id",selection.dailyStockId).eq("remaining_quantity",option.remaining_quantity).select("id").maybeSingle();if(error)throw error;if(!data)throw new Error(`Las existencias de ${selection.name} cambiaron; intenta nuevamente`);
+    if(selection.componentProductId)await changeInventory(tenantId,selection.componentProductId,-amount);
   }
 };
 const restoreOptionStocks=async(tenantId,items)=>{
@@ -108,15 +127,18 @@ const restoreOptionStocks=async(tenantId,items)=>{
     if(selection.dailyStockId===null||selection.dailyStockId===undefined)continue;
     const {data:option,error}=await supabaseAdmin.from("daily_menu_option_stocks").select("stock_quantity,remaining_quantity").eq("tenant_id",tenantId).eq("id",selection.dailyStockId).maybeSingle();if(error)throw error;if(!option)continue;
     await query(supabaseAdmin.from("daily_menu_option_stocks").update({remaining_quantity:Math.min(Number(option.stock_quantity),Number(option.remaining_quantity)+Number(item.quantity))}).eq("tenant_id",tenantId).eq("id",selection.dailyStockId));
+    if(selection.componentProductId)await changeInventory(tenantId,selection.componentProductId,Number(item.quantity));
   }
 };
 const reservePreparationStocks=async(tenantId,items)=>{
   const counts=new Map();for(const item of items||[])if(item.line_type==="preparation")for(const selection of item.selections||[]){if(!selection.dailyMenuItemId)continue;counts.set(selection.dailyMenuItemId,{name:selection.name,count:Number(counts.get(selection.dailyMenuItemId)?.count||0)+1})}
   for(const[id,value]of counts){const{data:daily,error}=await supabaseAdmin.from("daily_menu_items").select("remaining_quantity").eq("tenant_id",tenantId).eq("id",id).single();if(error)throw error;if(daily.remaining_quantity===null)continue;const remaining=Number(daily.remaining_quantity)-value.count;if(remaining<0)throw new Error(`No hay suficientes unidades de ${value.name}`);const{data,error:updateError}=await supabaseAdmin.from("daily_menu_items").update({remaining_quantity:remaining,availability:remaining===0?"sold_out":"available"}).eq("tenant_id",tenantId).eq("id",id).eq("remaining_quantity",daily.remaining_quantity).select("id").maybeSingle();if(updateError)throw updateError;if(!data)throw new Error(`Las existencias de ${value.name} cambiaron; intenta nuevamente`)}
+  for(const item of items||[])if(item.line_type==="preparation")for(const selection of item.selections||[])if(selection.productId)await changeInventory(tenantId,selection.productId,-Number(item.quantity));
 };
 const restorePreparationStocks=async(tenantId,items)=>{
   const counts=new Map();for(const item of items||[])if(item.line_type==="preparation")for(const selection of item.selections||[]){if(selection.dailyMenuItemId)counts.set(selection.dailyMenuItemId,Number(counts.get(selection.dailyMenuItemId)||0)+1)}
   for(const[id,count]of counts){const{data:daily,error}=await supabaseAdmin.from("daily_menu_items").select("stock_quantity,remaining_quantity").eq("tenant_id",tenantId).eq("id",id).maybeSingle();if(error)throw error;if(!daily||daily.remaining_quantity===null)continue;const restored=Math.min(Number(daily.stock_quantity),Number(daily.remaining_quantity)+count);await query(supabaseAdmin.from("daily_menu_items").update({remaining_quantity:restored,availability:restored>0?"available":"sold_out"}).eq("tenant_id",tenantId).eq("id",id))}
+  for(const item of items||[])if(item.line_type==="preparation")for(const selection of item.selections||[])if(selection.productId)await changeInventory(tenantId,selection.productId,Number(item.quantity));
 };
 export const editOrder = async ({tenantId,order,values,items}) => {
   await restoreControlledItems(tenantId,order.order_items);
@@ -129,6 +151,7 @@ export const editOrder = async ({tenantId,order,values,items}) => {
     const {data:daily,error:readError}=await supabaseAdmin.from("daily_menu_items").select("remaining_quantity").eq("tenant_id",tenantId).eq("id",item.daily_menu_item_id).single();if(readError)throw readError;
     const remaining=Number(daily.remaining_quantity)-Number(item.quantity);if(remaining<0)throw new Error(`No hay suficientes unidades de ${item.product_name}`);
     await query(supabaseAdmin.from("daily_menu_items").update({remaining_quantity:remaining,availability:remaining===0?"sold_out":"available"}).eq("tenant_id",tenantId).eq("id",item.daily_menu_item_id));
+    if(item.product_id)await changeInventory(tenantId,item.product_id,-Number(item.quantity));
   }
   await reserveOptionStocks(tenantId,items);
   await reservePreparationStocks(tenantId,items);

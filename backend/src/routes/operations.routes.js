@@ -25,6 +25,8 @@ router.delete("/templates/:id",roles(),c.deleteTemplate);
 router.get("/daily-menu",roles("cashier","waiter","kitchen"),c.getDailyMenu);
 router.put("/daily-menu",roles(),c.putDailyMenu);
 router.patch("/daily-menu/items/:id",roles(),c.patchDailyMenuItem);
+router.get("/inventory",roles("cashier","auditor"),c.getInventory);
+router.put("/inventory/:productId",roles("cashier"),c.putInventory);
 
 router.get("/tables",roles("cashier","waiter","kitchen"),c.getTables);
 router.post("/tables",roles(),c.postTable);

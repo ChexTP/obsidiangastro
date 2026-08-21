@@ -17,7 +17,9 @@ export const updateDailyMenuAvailability=(id,availability)=>apiRequest(`/operati
 export const getTables=()=>apiRequest("/operations/tables");
 export const createTable=(data)=>apiRequest("/operations/tables",{method:"POST",body:JSON.stringify(data)});
 export const updateTable=(id,data)=>apiRequest(`/operations/tables/${id}`,{method:"PATCH",body:JSON.stringify(data)});
-export const getOrders=()=>apiRequest("/operations/orders");
+export const getOrders=(options={})=>{const params=new URLSearchParams();if(options.history)params.set("history","true");if(options.date)params.set("date",options.date);const query=params.toString();return apiRequest(`/operations/orders${query?`?${query}`:""}`)};
+export const getInventory=()=>apiRequest("/operations/inventory");
+export const updateInventory=(productId,data)=>apiRequest(`/operations/inventory/${productId}`,{method:"PUT",body:JSON.stringify(data)});
 export const getOrder=(id)=>apiRequest(`/operations/orders/${id}`);
 export const createOrder=(data)=>apiRequest("/operations/orders",{method:"POST",body:JSON.stringify(data)});
 export const editOrder=(id,data)=>apiRequest(`/operations/orders/${id}`,{method:"PUT",body:JSON.stringify(data)});
