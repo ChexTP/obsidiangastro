@@ -158,11 +158,14 @@ class _OrderBuilderPageState extends State<OrderBuilderPage> {
                   ),
             )
             .toList()
-          ..sort(
-            (a, b) => (b['template_requirements'] as List).length.compareTo(
-              (a['template_requirements'] as List).length,
-            ),
-          );
+          ..sort((a, b) {
+            final ar = a['template_requirements'] as List? ?? [], br = b['template_requirements'] as List? ?? [];
+            final au = ar.fold<int>(0, (sum, item) => sum + (int.tryParse('${item['quantity']}') ?? 0));
+            final bu = br.fold<int>(0, (sum, item) => sum + (int.tryParse('${item['quantity']}') ?? 0));
+            final units = bu.compareTo(au);if (units != 0) return units;
+            final categories = br.map((item) => item['category_id']).toSet().length.compareTo(ar.map((item) => item['category_id']).toSet().length);if (categories != 0) return categories;
+            return (double.tryParse('${b['base_price']}') ?? 0).compareTo(double.tryParse('${a['base_price']}') ?? 0);
+          });
     final template = matches.isEmpty ? null : matches.first;
     final included = <int>{};
     if (template != null) {
@@ -198,72 +201,10 @@ class _OrderBuilderPageState extends State<OrderBuilderPage> {
   }
 
   double get total {
-    final pool = <Map<String, dynamic>>[];
-    final ids = <String>[
-      ...preparations.expand((item) => item),
-      ...individuals.entries.expand(
-        (entry) => List.filled(entry.value, entry.key),
-      ),
-    ];
-    for (final id in ids) {
-      final product = products.cast<Map<String, dynamic>?>().firstWhere(
-        (item) => item?['id'] == id,
-        orElse: () => null,
-      );
-      if (product != null) pool.add(product);
-    }
-    final sortedTemplates =
-        templates.where((item) => item['is_active'] == true).toList()..sort(
-          (a, b) => (b['template_requirements'] as List)
-              .fold<int>(
-                0,
-                (sum, item) => sum + (int.tryParse('${item['quantity']}') ?? 0),
-              )
-              .compareTo(
-                (a['template_requirements'] as List).fold<int>(
-                  0,
-                  (sum, item) =>
-                      sum + (int.tryParse('${item['quantity']}') ?? 0),
-                ),
-              ),
-        );
-    var value = 0.0;
-    while (true) {
-      final template = sortedTemplates.cast<Map<String, dynamic>?>().firstWhere(
-        (candidate) =>
-            (candidate?['template_requirements'] as List? ?? []).every(
-              (requirement) =>
-                  pool
-                      .where(
-                        (product) =>
-                            product['category_id'] ==
-                            requirement['category_id'],
-                      )
-                      .length >=
-                  (int.tryParse('${requirement['quantity']}') ?? 0),
-            ),
-        orElse: () => null,
-      );
-      if (template == null) break;
-      final group = <String>[];
-      for (final requirement in template['template_requirements'] as List) {
-        var remaining = int.tryParse('${requirement['quantity']}') ?? 0;
-        for (
-          var index = pool.length - 1;
-          index >= 0 && remaining > 0;
-          index--
-        ) {
-          if (pool[index]['category_id'] == requirement['category_id']) {
-            group.add('${pool[index]['id']}');
-            pool.removeAt(index);
-            remaining--;
-          }
-        }
-      }
-      value += recognize(group)['total'] as double;
-    }
-    for (final product in pool) {
-      value += double.tryParse('${product['price']}') ?? 0;
+    var value = preparations.where((item) => item.isNotEmpty).fold<double>(0, (sum, item) => sum + (recognize(item)['total'] as double));
+    for (final entry in individuals.entries) {
+      final product = products.cast<Map<String, dynamic>?>().firstWhere((item) => item?['id'] == entry.key, orElse: () => null);
+      if (product != null) value += (double.tryParse('${product['price']}') ?? 0) * entry.value;
     }
     if (serviceType != 'table') value += double.tryParse(fee.text) ?? 0;
     return value;

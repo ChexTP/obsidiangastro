@@ -11,19 +11,18 @@ const labels={table:"Para mesa",takeaway:"Para llevar",delivery:"Domicilio"};
 const statusLabels={new:"Nuevo",preparing:"Preparando",ready:"Listo",delivered:"Entregado",paid:"Pagado",cancelled:"Cancelado",refunded:"Devuelto"};
 const plural=(value,singular,pluralWord)=>`${value} ${value===1?singular:pluralWord}`;
 const newPreparation=()=>({id:crypto.randomUUID(),ingredientIds:[]});
+const templateSpecificity=template=>({units:(template.template_requirements||[]).reduce((sum,item)=>sum+Number(item.quantity),0),categories:new Set((template.template_requirements||[]).map(item=>item.category_id)).size});
+const mostSpecificTemplates=templates=>templates.filter(template=>template.is_active).sort((a,b)=>{const left=templateSpecificity(a),right=templateSpecificity(b);return right.units-left.units||right.categories-left.categories||Number(b.base_price)-Number(a.base_price)||String(a.name).localeCompare(String(b.name),"es")});
 
 const recognizePreparation=(preparation,products,templates)=>{
  const ingredients=preparation.ingredientIds.map(id=>products.find(product=>product.id===id)).filter(Boolean);
- const matches=templates.filter(template=>template.is_active&&(template.template_requirements||[]).every(requirement=>ingredients.filter(product=>product.category_id===requirement.category_id).length>=Number(requirement.quantity))).sort((a,b)=>b.template_requirements.reduce((sum,item)=>sum+Number(item.quantity),0)-a.template_requirements.reduce((sum,item)=>sum+Number(item.quantity),0));
+ const matches=mostSpecificTemplates(templates).filter(template=>(template.template_requirements||[]).every(requirement=>ingredients.filter(product=>product.category_id===requirement.category_id).length>=Number(requirement.quantity)));
  const template=matches[0]||null,included=new Set();if(template)for(const requirement of [...template.template_requirements].sort((a,b)=>a.sort_order-b.sort_order)){let remaining=Number(requirement.quantity);ingredients.forEach((product,index)=>{if(remaining>0&&!included.has(index)&&product.category_id===requirement.category_id){included.add(index);remaining--}})}
  let total=template?Number(template.base_price):0;ingredients.forEach((product,index)=>{total+=template&&included.has(index)?Number(product.template_surcharge||0):Number(product.price)});
  return{template,ingredients,included,total};
 };
 const composeSelections=(preparations,individuals,products,templates)=>{
- const pool=[...preparations.flatMap(item=>item.ingredientIds),...Object.entries(individuals).flatMap(([id,quantity])=>Array(Number(quantity)).fill(id))].map(id=>products.find(product=>product.id===id)).filter(Boolean),groups=[];
- const sorted=templates.filter(template=>template.is_active).sort((a,b)=>b.template_requirements.reduce((sum,item)=>sum+Number(item.quantity),0)-a.template_requirements.reduce((sum,item)=>sum+Number(item.quantity),0));
- while(true){const template=sorted.find(candidate=>(candidate.template_requirements||[]).every(requirement=>pool.filter(product=>product.category_id===requirement.category_id).length>=Number(requirement.quantity)));if(!template)break;const ingredientIds=[];for(const requirement of [...template.template_requirements].sort((a,b)=>a.sort_order-b.sort_order)){let remaining=Number(requirement.quantity);for(let index=pool.length-1;index>=0&&remaining>0;index--){if(pool[index].category_id===requirement.category_id){ingredientIds.push(pool[index].id);pool.splice(index,1);remaining--}}}groups.push(recognizePreparation({ingredientIds},products,templates))}
- const leftovers={};pool.forEach(product=>leftovers[product.id]=Number(leftovers[product.id]||0)+1);return{groups,leftovers};
+ const groups=preparations.filter(item=>item.ingredientIds.length).map(item=>recognizePreparation(item,products,templates));return{groups,leftovers:{...individuals}};
 };
 
 export default function OrdersPage(){
