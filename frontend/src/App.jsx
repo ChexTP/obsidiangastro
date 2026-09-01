@@ -7,6 +7,7 @@ import ForgotPasswordPage from "./modules/auth/ForgotPasswordPage";
 import OnboardingPage from "./modules/onboarding/OnboardingPage";
 import DashboardPage from "./modules/dashboard/DashboardPage";
 import OrdersPage from "./modules/orders/OrdersPage";
+import PaidOrdersPage from "./modules/orders/PaidOrdersPage";
 import MenuPage from "./modules/menu/MenuPage";
 import TablesPage from "./modules/tables/TablesPage";
 import KitchenPage from "./modules/kitchen/KitchenPage";
@@ -31,6 +32,7 @@ export default function App() {
     <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
       <Route path="/dashboard" element={<RoleRoute roles={["owner","admin"]}><DashboardPage /></RoleRoute>} />
       <Route path="/pedidos" element={<RoleRoute roles={["owner","admin","cashier","waiter"]}><OrdersPage /></RoleRoute>} />
+      <Route path="/pedidos-pagados" element={<RoleRoute roles={["owner","admin","cashier"]}><PaidOrdersPage /></RoleRoute>} />
       <Route path="/menu" element={<RoleRoute roles={["owner","admin"]}><MenuPage /></RoleRoute>} />
       <Route path="/plantillas" element={<RoleRoute roles={["owner","admin"]}><TemplatesPage /></RoleRoute>} />
       <Route path="/mesas" element={<RoleRoute roles={["owner","admin","cashier","waiter"]}><TablesPage /></RoleRoute>} />
