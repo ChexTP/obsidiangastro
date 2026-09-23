@@ -36,11 +36,11 @@ const prepareRequestedItem=(requested,product,previousQuantity=0,previousOptionQ
   if(product.product_type==="composite"&&groups.length===0)return null;
   return{product_id:product.id,template_id:null,line_type:"product",product_name:product.name,unit_price:Number(product.effectivePrice)+extra,quantity,notes:requested.notes||null,selections,daily_menu_item_id:product.dailyMenuItemId,remaining_quantity:product.remainingQuantity};
 };
-const buildPreparation=(ingredientIds,productsById,templates,previousIngredients=new Map())=>{
+const buildPreparation=(ingredientIds,productsById,templates,previousIngredients=new Map(),preferredTemplateId=null)=>{
   if(!Array.isArray(ingredientIds)||!ingredientIds.length)return null;const ingredients=ingredientIds.map(id=>productsById.get(id));if(ingredients.some(item=>!item))return null;
   const requestedCounts=new Map();for(const product of ingredients)requestedCounts.set(product.id,Number(requestedCounts.get(product.id)||0)+1);
   for(const [id,count]of requestedCounts){const product=productsById.get(id),capacity=product.remainingQuantity===null?null:Number(product.remainingQuantity)+Number(previousIngredients.get(id)||0);if(capacity!==null&&count>capacity)return null}
-  const matches=mostSpecificTemplates(templates).filter(template=>(template.template_requirements||[]).every(requirement=>ingredients.filter(product=>product.category_id===requirement.category_id).length>=Number(requirement.quantity)));
+  const matches=mostSpecificTemplates(templates).filter(template=>(!preferredTemplateId||template.id===preferredTemplateId)&&(template.template_requirements||[]).every(requirement=>ingredients.filter(product=>product.category_id===requirement.category_id).length>=Number(requirement.quantity)));if(preferredTemplateId&&!matches.length)return null;
   const template=matches[0]||null,included=new Set();if(template)for(const requirement of [...template.template_requirements].sort((a,b)=>a.sort_order-b.sort_order)){let remaining=Number(requirement.quantity);ingredients.forEach((product,index)=>{if(remaining>0&&!included.has(index)&&product.category_id===requirement.category_id){included.add(index);remaining--}})}
   let total=template?Number(template.base_price):0;const selections=ingredients.map((product,index)=>{const isIncluded=included.has(index),individualPrice=Number(product.effectivePrice??product.price);if(template&&isIncluded)total+=Number(product.template_surcharge||0);else total+=individualPrice;return{productId:product.id,dailyMenuItemId:product.dailyMenuItemId,group:product.product_categories?.name||"Sin categoría",name:product.name,included:isIncluded,individualPrice,templateSurcharge:Number(product.template_surcharge||0)}});
   return{product_id:null,template_id:template?.id||null,line_type:"preparation",product_name:template?.name||"Selección individual",unit_price:total,quantity:1,notes:null,selections,daily_menu_item_id:null,remaining_quantity:null};
@@ -48,7 +48,7 @@ const buildPreparation=(ingredientIds,productsById,templates,previousIngredients
 const composeOrderItems=(requestedItems,requestedPreparations,productsById,templates,previous=new Map(),previousOptions=new Map(),previousIngredients=new Map())=>{
   const totalCounts=new Map();for(const preparation of requestedPreparations)for(const id of preparation.ingredientIds)totalCounts.set(id,Number(totalCounts.get(id)||0)+1);for(const requested of requestedItems)totalCounts.set(requested.productId,Number(totalCounts.get(requested.productId)||0)+Number(requested.quantity));
   for(const[id,count]of totalCounts){const product=productsById.get(id);if(!product)return null;const capacity=product.remainingQuantity===null?null:Number(product.remainingQuantity)+Number(previous.get(id)||0)+Number(previousIngredients.get(id)||0);if(capacity!==null&&count>capacity)return null}
-  const preparationLines=requestedPreparations.map(preparation=>buildPreparation(preparation.ingredientIds,productsById,templates,previousIngredients));
+  const preparationLines=requestedPreparations.map(preparation=>buildPreparation(preparation.ingredientIds,productsById,templates,previousIngredients,preparation.templateId||null));
   const productLines=requestedItems.map(item=>prepareRequestedItem(item,productsById.get(item.productId),previous.get(item.productId),previousOptions));
   return [...productLines,...preparationLines].some(item=>!item)?null:[...productLines,...preparationLines];
 };
