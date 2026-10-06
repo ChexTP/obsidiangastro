@@ -182,7 +182,21 @@ export const refundOrder = async ({tenantId,order,userId,cashSessionId,reason}) 
   return updateOrder(tenantId,order.id,{status:"refunded"});
 };
 
-export const currentCashSession = async (tenantId) => { const {data,error}=await supabaseAdmin.from("cash_sessions").select("*,cash_movements(*),payments(*),refunds(*)").eq("tenant_id",tenantId).eq("status","open").maybeSingle(); if(error)throw error; return data; };
+// Older installations can contain more than one open session.  The cash flow
+// must keep working in that case, so the newest open session is the active one.
+// `maybeSingle()` alone still fails when the query returns multiple rows.
+export const currentCashSession = async (tenantId) => {
+  const { data, error } = await supabaseAdmin
+    .from("cash_sessions")
+    .select("*,cash_movements(*),payments(*),refunds(*)")
+    .eq("tenant_id", tenantId)
+    .eq("status", "open")
+    .order("opened_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+};
 export const listClosedCashSessions = (tenantId) => query(supabaseAdmin.from("cash_sessions").select("*,cash_movements(*),payments(*),refunds(*)").eq("tenant_id",tenantId).eq("status","closed").order("closed_at",{ascending:false}).limit(50));
 export const listCashSessionsInRange = (tenantId,from,to) => query(supabaseAdmin.from("cash_sessions").select("*,cash_movements(*),payments(*),refunds(*)").eq("tenant_id",tenantId).gte("opened_at",from).lt("opened_at",to).order("opened_at",{ascending:true}));
 export const listPaidOrderItemsForCashSession = async (tenantId,sessionId) => {
